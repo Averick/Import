@@ -50,6 +50,52 @@ class FormHandler {
       }
     });
 
+    // Add search modal open event listener (preserve exact logic from original)
+    document.addEventListener("searchModalOpen", (e) => {
+      var form = {};
+      form.tealium_event = "form_load";
+      var productData = {};
+      var item = e.detail;
+      var formDetail = "";
+      
+      if (item) {
+        // Use productHandler to parse product data if available
+        if (window.productHandler && typeof window.productHandler.parseProductsData === 'function') {
+          productData = window.productHandler.parseProductsData(item);
+        }
+        
+        form.form_name = item.formName;
+        form.form_type = item.formType;
+        form.form_id = item.formId;
+        
+        if (config.isExternalBrandedZoneSite && item.productId) {
+          formDetail = `${item.modelName}_${item.productId}`;
+        } else {
+          formDetail = `${item.modelName}_${productData.product_id || ''}`;
+        }
+        
+        if (form.form_id && form.form_type && form.form_name) {
+          var final = Object.assign({}, config.siteUser, form, productData);
+          if (utag_data && utag_data.page_h1) {
+            final.page_h1 = utag_data.page_h1;
+          }
+          if (config.pageMakeGroup) {
+            final.page_make_group = config.pageMakeGroup;
+          }
+          
+          // Track the event using the callback
+          this.trackEvent('form_load', final);
+          
+          // Set up form interaction tracking if form element exists
+          const formElement = document.querySelector(`#${formDetail}`);
+          if (formElement) {
+            const formData = this.extractFormData(formElement);
+            this.setupFormInteraction(formElement, formData);
+          }
+        }
+      }
+    });
+
     this.initialized = true;
   }
 
@@ -67,7 +113,21 @@ class FormHandler {
 
   trackFormLoads() {
     const forms = document.querySelectorAll('.component[class*=" LeadForm_"]')
-    forms.forEach((form) => this.processFormLoad(form))
+    forms.forEach((form) => {
+      // Apply same exclusion logic as original Global Tealium Tracking
+      if (form.closest('div[class*="Staff_"]')) return;
+      if (form.closest('div[class*="OfferedServices_"]')) return;
+      if (form.closest('div[class*="ShowcaseRoot_"]')) return;
+      if (form.closest('div[class*="VDP-Unit-Detail_"]')) return;
+      if (form.closest('div[class*="SearchRoot_"]')) return; // Fixes inventory page issue
+      
+      // Additional exclusion from original
+      const formIdElement = form.querySelector('span[data-form-id]');
+      const formId = formIdElement ? formIdElement.getAttribute('data-form-id') : null;
+      if (formId == 1461 && screen.width >= 768) return; // Desktop "Can't Find" form
+      
+      this.processFormLoad(form);
+    })
   }
 
   processFormLoad(formElement) {
