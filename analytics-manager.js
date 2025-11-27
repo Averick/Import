@@ -1,5 +1,12 @@
 // Prevent redeclaration errors
-if (typeof AnalyticsManager === 'undefined') {
+(function() {
+  'use strict';
+  
+  // Check if already loaded
+  if (typeof window.AnalyticsManager !== 'undefined') {
+    return;
+  }
+  
   class AnalyticsManager {
     constructor() {
       this.initialized = false;
@@ -195,11 +202,11 @@ if (typeof AnalyticsManager === 'undefined') {
     return this.utag_data;
   }
   }
-}
 
-// Initialize analytics manager (self-contained like productAiExpert.js)
-(function() {
-  // AnalyticsManager is available in this script's scope
+  // Make class available globally
+  window.AnalyticsManager = AnalyticsManager;
+  
+  // Initialize analytics manager instance
   if (typeof window.analyticsManager === 'undefined') {
     window.analyticsManager = new AnalyticsManager();
   }
