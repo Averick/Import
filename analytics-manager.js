@@ -1,9 +1,11 @@
-class AnalyticsManager {
-  constructor() {
-    this.initialized = false;
-    this.utag_data = {};
-    this.config = null;
-  }
+// Prevent redeclaration errors
+if (typeof AnalyticsManager === 'undefined') {
+  class AnalyticsManager {
+    constructor() {
+      this.initialized = false;
+      this.utag_data = {};
+      this.config = null;
+    }
 
   initialize(config) {
     console.log('Initializing Tealium Analytics Manager');
@@ -192,10 +194,13 @@ class AnalyticsManager {
   getUtagData() {
     return this.utag_data;
   }
+  }
 }
 
 // Initialize analytics manager (self-contained like productAiExpert.js)
 (function() {
   // AnalyticsManager is available in this script's scope
-  window.analyticsManager = new AnalyticsManager();
+  if (typeof window.analyticsManager === 'undefined') {
+    window.analyticsManager = new AnalyticsManager();
+  }
 })();
