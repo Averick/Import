@@ -166,6 +166,15 @@ class AnalyticsManager {
 
     // Initialize form tracking
     if (window.formHandler) {
+      // Set up tracking callback for form events
+      window.formHandler.setTrackingCallback((eventType, data) => {
+        const formEventData = $.extend({}, this.utag_data, data, { tealium_event: eventType });
+        if (typeof utag !== referenceError) {
+          utag.link(formEventData);
+        } else {
+          console.log('Could not trigger utag.link method for form event:', eventType);
+        }
+      });
       window.formHandler.setupFormTracking();
     }
 
@@ -190,4 +199,3 @@ class AnalyticsManager {
   // AnalyticsManager is available in this script's scope
   window.analyticsManager = new AnalyticsManager();
 })();
-
