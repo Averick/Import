@@ -168,19 +168,47 @@ class FormHandler {
       return
     }
 
-    // Track first interaction with form fields
-    const formFields = formElement.querySelectorAll('input, select, textarea')
+    // Get the form modal ID (formdetail equivalent)
+    const formModal = formElement.closest('.ari-form') || formElement.closest('[id*="AriFormModal"]')
+    const formId = formModal ? formModal.id : null
 
-    const handleInteraction = () => {
-      if (!this.interactionTracked.has(formKey)) {
-        this.interactionTracked.add(formKey)
-        this.trackEvent('form_interaction', formData)
-      }
+    if (!formId) {
+      console.warn('Could not find form modal ID for interaction tracking')
+      return
     }
 
-    formFields.forEach((field) => {
-      field.addEventListener('focus', handleInteraction, { once: true })
-      field.addEventListener('change', handleInteraction, { once: true })
+    // Use jQuery event delegation exactly like original
+    $(`#${formId}`).on('click', 'input,select,textarea,label', (e) => {
+      if (!this.interactionTracked.has(formKey)) {
+        this.interactionTracked.add(formKey)
+        
+        // Create form interaction data (reuse the same data from form_load)
+        const interactionData = { ...formData, tealium_event: 'form_interaction' }
+        
+        this.trackEvent('form_interaction', interactionData)
+        
+        // Remove the event listener after first interaction (one-time only)
+        $(`#${formId}`).off('click', 'input,select,textarea,label')
+      }
+    })
+  }
+
+  // Add formInteraction method to match original API
+  formInteraction(formData, formdetail) {
+    // This matches the original formInteraction(final, formdetail) call
+    const formKey = this.getFormKey(formData)
+    
+    $(`#${formdetail}`).on('click', 'input,select,textarea,label', (e) => {
+      if (!this.interactionTracked.has(formKey)) {
+        this.interactionTracked.add(formKey)
+        
+        // Use same data as form_load but change event type
+        const interactionData = { ...formData, tealium_event: 'form_interaction' }
+        this.trackEvent('form_interaction', interactionData)
+        
+        // Remove listener after first click
+        $(`#${formdetail}`).off('click', 'input,select,textarea,label')
+      }
     })
   }
 
