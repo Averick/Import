@@ -164,9 +164,9 @@ class AnalyticsManager {
       }
     }
 
-    // Initialize window load form handlers
+    // Initialize form tracking
     if (window.formHandler) {
-      window.formHandler.handleWindowLoadForms(this.config, this.utag_data);
+      window.formHandler.setupFormTracking();
     }
 
     // Update global utag_data
@@ -190,3 +190,4 @@ class AnalyticsManager {
   // AnalyticsManager is available in this script's scope
   window.analyticsManager = new AnalyticsManager();
 })();
+
