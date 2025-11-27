@@ -1,18 +1,9 @@
-// Prevent redeclaration errors
-(function() {
-  'use strict';
-  
-  // Check if already loaded
-  if (typeof window.AnalyticsManager !== 'undefined') {
-    return;
+class AnalyticsManager {
+  constructor() {
+    this.initialized = false;
+    this.utag_data = {};
+    this.config = null;
   }
-  
-  class AnalyticsManager {
-    constructor() {
-      this.initialized = false;
-      this.utag_data = {};
-      this.config = null;
-    }
 
   initialize(config) {
     console.log('Initializing Tealium Analytics Manager');
@@ -201,13 +192,10 @@
   getUtagData() {
     return this.utag_data;
   }
-  }
+}
 
-  // Make class available globally
-  window.AnalyticsManager = AnalyticsManager;
-  
-  // Initialize analytics manager instance
-  if (typeof window.analyticsManager === 'undefined') {
-    window.analyticsManager = new AnalyticsManager();
-  }
+// Initialize analytics manager (self-contained like productAiExpert.js)
+(function() {
+  // AnalyticsManager is available in this script's scope
+  window.analyticsManager = new AnalyticsManager();
 })();
