@@ -1,6 +1,9 @@
 class FormHandler {
   constructor() {
     this.initialized = false;
+    this.interactionTracked = new Set();
+    this.formSubmissionTracked = new Set();
+    this.trackingCallback = null;
   }
 
   initialize(config, utag_data) {
