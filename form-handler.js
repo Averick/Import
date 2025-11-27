@@ -86,12 +86,8 @@ class FormHandler {
           // Track the event using the callback
           this.trackEvent('form_load', final);
           
-          // Set up form interaction tracking if form element exists
-          const formElement = document.querySelector(`#${formDetail}`);
-          if (formElement) {
-            const formData = this.extractFormData(formElement);
-            this.setupFormInteraction(formElement, formData);
-          }
+          // Set up form interaction tracking using formInteraction method like original
+          this.formInteraction(final, formDetail);
         }
       }
     });
@@ -193,23 +189,43 @@ class FormHandler {
     })
   }
 
-  // Add formInteraction method to match original API
-  formInteraction(formData, formdetail) {
-    // This matches the original formInteraction(final, formdetail) call
-    const formKey = this.getFormKey(formData)
+  // Add formInteraction method to match original API exactly
+  formInteraction(final, formDetail, optionalParam = '') {
+    console.log('formInteraction called with:', { final, formDetail });
     
-    $(`#${formdetail}`).on('click', 'input,select,textarea,label', (e) => {
-      if (!this.interactionTracked.has(formKey)) {
-        this.interactionTracked.add(formKey)
-        
-        // Use same data as form_load but change event type
-        const interactionData = { ...formData, tealium_event: 'form_interaction' }
-        this.trackEvent('form_interaction', interactionData)
-        
-        // Remove listener after first click
-        $(`#${formdetail}`).off('click', 'input,select,textarea,label')
-      }
-    })
+    // Find the actual form element inside the modal (exactly like original)
+    const formElement = document.querySelector('#' + formDetail + ' form' + optionalParam);
+    
+    if (formElement) {
+      console.log('Form with ID found, attaching event listeners.');
+      const formKey = this.getFormKey(final);
+      
+      // Function to handle first interaction (exactly like original)
+      const handleFirstInteraction = () => {
+        if (!this.interactionTracked.has(formKey)) {
+          console.log('Tracking form interaction for:', formKey);
+          this.interactionTracked.add(formKey);
+          
+          var finalInteractionData = Object.assign({}, final);
+          finalInteractionData.tealium_event = "form_interaction";
+          
+          // Trigger the event using trackingCallback
+          this.trackEvent('form_interaction', finalInteractionData);
+          
+          // Remove event listeners after the first interaction (exactly like original)
+          formElement.removeEventListener("input", handleFirstInteraction);
+          formElement.removeEventListener("focus", handleFirstInteraction);
+          formElement.removeEventListener("click", handleFirstInteraction);
+        }
+      };
+      
+      // Attach listeners exactly like original (input, focus, click)
+      formElement.addEventListener("input", handleFirstInteraction);
+      formElement.addEventListener("focus", handleFirstInteraction);
+      formElement.addEventListener("click", handleFirstInteraction);
+    } else {
+      console.log(`Form with ID ${formDetail} not found.`);
+    }
   }
 
   setupFormSubmissionListener() {
