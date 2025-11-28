@@ -65,7 +65,7 @@ class FormHandler {
       }
     })
 
-    // Add search modal open event listener (preserve exact logic from original)
+    // Add search modal open event listener
     document.addEventListener('searchModalOpen', (e) => {
       var form = {}
       form.tealium_event = 'form_load'
@@ -238,7 +238,17 @@ class FormHandler {
 
     if (this.isValidForm(enrichedFormData)) {
       this.trackEvent('form_load', enrichedFormData)
-      this.setupFormInteraction(formElement, enrichedFormData)
+
+      // Get formDetail (modal ID) exactly like old template
+      const formModal = formElement.closest('.ari-form')
+      const formDetail = formModal ? formModal.id : null
+
+      if (formDetail) {
+        this.formInteraction(enrichedFormData, formDetail)
+      } else {
+        console.warn('Could not find form modal ID for interaction tracking')
+        this.setupFormInteraction(formElement, enrichedFormData)
+      }
     }
   }
 
@@ -300,14 +310,34 @@ class FormHandler {
       return
     }
 
-    // Get the form modal ID (formdetail equivalent)
-    const formModal =
+    // Try multiple strategies to find the form modal container
+    let formModal =
       formElement.closest('.ari-form') ||
-      formElement.closest('[id*="AriFormModal"]')
+      formElement.closest('[id*="AriFormModal"]') ||
+      formElement.closest('[class*="Modal"]') ||
+      formElement.closest('[class*="modal"]') ||
+      formElement.closest('form')
+
+    // If still no modal found, try looking for any parent with an ID
+    if (!formModal) {
+      let parent = formElement.parentElement
+      while (parent && parent !== document.body) {
+        if (parent.id) {
+          formModal = parent
+          break
+        }
+        parent = parent.parentElement
+      }
+    }
+
     const formId = formModal ? formModal.id : null
 
     if (!formId) {
-      console.warn('Could not find form modal ID for interaction tracking')
+      console.warn(
+        'Could not find form modal ID for interaction tracking, falling back to direct form interaction'
+      )
+      // Fallback: attach directly to the form element itself
+      this.setupDirectFormInteraction(formElement, formData, formKey)
       return
     }
 
@@ -330,6 +360,35 @@ class FormHandler {
     })
   }
 
+  // Fallback method for forms without identifiable modal containers
+  setupDirectFormInteraction(formElement, formData, formKey) {
+    const handleFirstInteraction = (e) => {
+      if (!this.interactionTracked.has(formKey)) {
+        this.interactionTracked.add(formKey)
+
+        const interactionData = {
+          ...formData,
+          tealium_event: 'form_interaction',
+        }
+
+        this.trackEvent('form_interaction', interactionData)
+
+        // Remove event listeners after first interaction
+        formElement.removeEventListener('input', handleFirstInteraction)
+        formElement.removeEventListener('focus', handleFirstInteraction)
+        formElement.removeEventListener('click', handleFirstInteraction)
+      }
+    }
+
+    // Attach listeners directly to form inputs
+    const inputs = formElement.querySelectorAll('input,select,textarea,label')
+    inputs.forEach((input) => {
+      input.addEventListener('input', handleFirstInteraction)
+      input.addEventListener('focus', handleFirstInteraction)
+      input.addEventListener('click', handleFirstInteraction)
+    })
+  }
+
   // Add formInteraction method to match original API exactly
   formInteraction(final, formDetail, optionalParam = '') {
     console.log('formInteraction called with:', { final, formDetail })
@@ -340,7 +399,7 @@ class FormHandler {
     )
 
     if (formElement) {
-      console.log('Form with ID found, attaching event listeners.')
+      console.log(`Form with ID found, attaching event listeners.`)
       const formKey = this.getFormKey(final)
 
       // Function to handle first interaction (exactly like original)
@@ -352,8 +411,14 @@ class FormHandler {
           var finalInteractionData = Object.assign({}, final)
           finalInteractionData.tealium_event = 'form_interaction'
 
-          // Trigger the event using trackingCallback
-          this.trackEvent('form_interaction', finalInteractionData)
+          // Trigger the event exactly like original
+          if (typeof utag !== 'undefined') {
+            utag.link(finalInteractionData)
+          } else {
+            console.log(
+              'Could not trigger utag.link method for form interaction.'
+            )
+          }
 
           // Remove event listeners after the first interaction (exactly like original)
           formElement.removeEventListener('input', handleFirstInteraction)
