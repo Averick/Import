@@ -130,8 +130,8 @@ class FormHandler {
     // (Modal forms are tracked separately via show.bs.modal event)
     this.trackStaticFormLoads()
 
-    // Set up observers for dynamically loaded forms
-    this.observeForNewForms()
+    // Note: No dynamic form observer needed - matches old template behavior
+    // Forms are either static (processed above) or modal-based (handled by show.bs.modal)
   }
 
   trackStaticFormLoads() {
@@ -609,34 +609,12 @@ class FormHandler {
     }
   }
 
-  observeForNewForms() {
-    // Set up MutationObserver to detect dynamically added forms
-    const observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        mutation.addedNodes.forEach((node) => {
-          if (node.nodeType === Node.ELEMENT_NODE) {
-            const forms = node.querySelectorAll(
-              '.component[class*=" LeadForm_"]'
-            )
-            forms.forEach((form) => this.processFormLoad(form))
-
-            // Check if the added node itself is a form
-            if (
-              node.matches &&
-              node.matches('.component[class*=" LeadForm_"]')
-            ) {
-              this.processFormLoad(node)
-            }
-          }
-        })
-      })
-    })
-
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-    })
-  }
+  // Removed observeForNewForms() - not present in old template
+  // Old template only handles:
+  // 1. Static forms during window.load
+  // 2. Modal forms via show.bs.modal event
+  // 3. Specific manual triggers (OfferedServices, Can't Find forms)
+  // Dynamic form detection via MutationObserver is unnecessary complexity
 
   // Utility methods
   getFormKey(formData) {
