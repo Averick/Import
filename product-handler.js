@@ -1,357 +1,529 @@
-// Handles all product-specific analytics data processing
-
 class ProductHandler {
+  static PRODUCT_FIELDS = [
+    'itemMake',
+    'itemYear',
+    'productId',
+    'productExternalId',
+    'isUnitInventory',
+    'itemOnSale',
+    'name',
+    'unitPrice',
+    'itemType',
+    'itemTypeId',
+    'itemIndustry',
+    'productOwnerId',
+    'itemOriginalPrice',
+    'vin',
+    'primaryColor',
+  ]
+
+  static UTAG_MAPPINGS = {
+    product_list_makes: 'makes',
+    product_list_years: 'years',
+    product_list_ids: 'ids',
+    product_list_names: 'names',
+    product_list_types: 'types',
+    product_list_on_sale: 'onSales',
+    product_list_prices: 'prices',
+    product_list_categories: 'categories',
+    product_list_category_ids: 'categoryIds',
+    product_list_industries: 'industries',
+    product_list_make_ids: 'makeIds',
+    product_list_msrp: 'msrps',
+    product_list_vins: 'vins',
+    product_list_external_colors: 'externalColors',
+    product_external_id: 'productExternalIds',
+    product_external_platform: 'productExternalPlatforms',
+    product_list_did_active: 'activePromotions',
+  }
+
   constructor() {
-    // Empty constructor - methods will be called statically
+    this.domCache = {
+      visitorsCount: null,
+      promoMessage: null,
+      spin360: null,
+      financingAnchor: null,
+    }
+  }
+
+  parseJsonElement(elementId) {
+    return window.analyticsUtils.parseJsonFromElement(elementId)
+  }
+
+  getDOMElement(selector, cacheKey) {
+    if (!this.domCache[cacheKey]) {
+      this.domCache[cacheKey] = document.querySelector(selector)
+    }
+    return this.domCache[cacheKey]
   }
 
   getProductAnalyticsData(config) {
-    if(config.pageType === "product details") {
-      var productDataSource = JSON.parse(document.getElementById('unit-analytics-data').innerHTML.replace(/&quot;/g, '"'));
-      if(config.isExternalBrandedZoneSite && productDataSource.productExternalId) {
-        config.productInfo.product_id = productDataSource.productExternalId;
-        config.productInfo.product_external_platform = [config.parentSitePlatformType];
-        config.productInfo.product_external_id = [productDataSource.productExternalId];
-      } else {
-        config.productInfo.product_id = productDataSource.productId;
-      }
-      config.productInfo.product_name = productDataSource.item.trim();
-      config.productInfo.vdp_urgency_active = document.querySelector('.visitors-count') ? 1 : 0;
-      utag_data.did_active = document.querySelectorAll("#inventory_promoMessage").length > 0 ? 1 : 0;
-      if(productDataSource.itemTypeId) {
-        config.productInfo.product_category = productDataSource.itemType;
-        config.productInfo.product_category_id = productDataSource.itemTypeId;
-      }
-      if(productDataSource.itemSubtypeId){
-        config.productInfo.product_subcategory_id = productDataSource.itemSubtypeId;
-        config.productInfo.product_subcategory = productDataSource.itemSubtype;
-      }
-      if(productDataSource.itemMakeId) {
-        config.productInfo.product_make_id = productDataSource.itemMakeId;
-        config.productInfo.product_make = productDataSource.itemMake;
-      }
-      if(productDataSource.itemModel) {
-        config.productInfo.product_model = productDataSource.itemModel;
-      }
-      if(productDataSource.itemYear > 0) {
-        config.productInfo.product_year = productDataSource.itemYear;
-      }
-      if(productDataSource.usageStatus) {
-        config.productInfo.product_condition = productDataSource.usageStatus.trim();
-      } else if(!productDataSource.isUnitInventory) {
-        config.productInfo.product_condition = "New";
-      }
-      if(productDataSource.itemIndustry) {
-        config.productInfo.product_industry = productDataSource.itemIndustry.trim();
-      }
-      config.productInfo.product_on_sale = productDataSource.itemOnSale ? 1 : 0;
-      if(productDataSource.isUnitInventory) {
-        config.productInfo.product_type = "Inventory";
-      } else {
-        config.productInfo.product_type = "Showcase";
-      }
-      config.productInfo.product_uri = window.location.pathname;
-      if(productDataSource.itemThumbNailUrl) {
-        config.productInfo.product_image_url = productDataSource.itemThumbNailUrl;
-      }
-      config.productInfo.product_custom_image_count = productDataSource.itemCustomImageCount;
-      config.productInfo.product_videos_count = productDataSource.itemVideoExists;
-      config.productInfo.product_360view_count = document.getElementById('dealer360-spin-container') != null ? 1 : 0;
-      config.productInfo.product_description_char_count = productDataSource.itemDescriptionCount;
-      if(productDataSource.itemOriginalPrice) {
-        var originalPrice = parseFloat(productDataSource.itemOriginalPrice.replace(/[$,]/g,''));
-        if(originalPrice > 0){
-          config.productInfo.product_original_price = originalPrice;
-        }
-      }
-      if(productDataSource.itemOnSale) {
-        if(productDataSource.salePrice) {
-          config.productInfo.product_price = productDataSource.salePrice.toString().replace(/[$,]/g,'');
-        }
-        if(productDataSource.discountAmount) {
-          config.productInfo.product_discount_amount = productDataSource.discountAmount;
-        }
-      } else {
-        var productPrice = parseFloat(productDataSource.itemOriginalPrice.replace(/[$,]/g,''));
-        if(productPrice > 0) {
-          config.productInfo.product_price = productPrice;
-        }
-      }
+    if (config.pageType !== 'product details') return
 
-      var financingAnchor = $("a[data-form-type='financing'][data-is-external-url='False']");		
-      try {
-        if(financingAnchor.length > 0) {
-          var financingUrl = new URL(financingAnchor.attr('href'), window.location.origin);
-          financingUrl.searchParams.append("item_360view_count", config.productInfo.product_360view_count);
-          financingUrl.searchParams.append("vdp_urgency_active_flag", config.productInfo.vdp_urgency_active);
-          financingAnchor.attr("href", financingUrl.toString());
-        }
-      } catch(e) {
-        console.error('Error parsing financing URL in Tealium component');
+    const productDataSource = this.parseProductDataSource()
+    if (!productDataSource) return
+
+    this.setProductId(config, productDataSource)
+    this.setBasicProductInfo(config, productDataSource)
+    this.setProductCategories(config, productDataSource)
+    this.setProductCondition(config, productDataSource)
+    this.setProductPricing(config, productDataSource)
+    this.setProductMedia(config, productDataSource)
+    this.setProductType(config, productDataSource)
+    this.updateFinancingUrl(config)
+  }
+
+  parseProductDataSource() {
+    return this.parseJsonElement('unit-analytics-data')
+  }
+
+  setProductId(config, data) {
+    if (config.isExternalBrandedZoneSite && data.productExternalId) {
+      config.productInfo.product_id = data.productExternalId
+      config.productInfo.product_external_platform = [
+        config.parentSitePlatformType,
+      ]
+      config.productInfo.product_external_id = [data.productExternalId]
+    } else {
+      config.productInfo.product_id = data.productId
+    }
+  }
+
+  setBasicProductInfo(config, data) {
+    if (data.item) config.productInfo.product_name = data.item.trim()
+    if (data.itemModel) config.productInfo.product_model = data.itemModel
+    if (data.itemYear > 0) config.productInfo.product_year = data.itemYear
+    if (data.itemIndustry)
+      config.productInfo.product_industry = data.itemIndustry.trim()
+
+    config.productInfo.product_uri = window.location.pathname
+    config.productInfo.product_on_sale = data.itemOnSale ? 1 : 0
+
+    config.productInfo.vdp_urgency_active = this.getDOMElement(
+      '.visitors-count',
+      'visitorsCount'
+    )
+      ? 1
+      : 0
+    utag_data.did_active = this.getDOMElement(
+      '#inventory_promoMessage',
+      'promoMessage'
+    )
+      ? 1
+      : 0
+  }
+
+  setProductCategories(config, data) {
+    if (data.itemTypeId) {
+      config.productInfo.product_category = data.itemType
+      config.productInfo.product_category_id = data.itemTypeId
+    }
+
+    if (data.itemSubtypeId) {
+      config.productInfo.product_subcategory_id = data.itemSubtypeId
+      config.productInfo.product_subcategory = data.itemSubtype
+    }
+
+    if (data.itemMakeId) {
+      config.productInfo.product_make_id = data.itemMakeId
+      config.productInfo.product_make = data.itemMake
+    }
+  }
+
+  setProductCondition(config, data) {
+    if (data.usageStatus) {
+      config.productInfo.product_condition = data.usageStatus.trim()
+    } else if (!data.isUnitInventory) {
+      config.productInfo.product_condition = 'New'
+    }
+  }
+
+  setProductPricing(config, data) {
+    const parsePrice = (priceStr) => {
+      const price = window.analyticsUtils.parsePrice(priceStr)
+      return price > 0 ? price : null
+    }
+
+    if (data.itemOriginalPrice) {
+      const originalPrice = parsePrice(data.itemOriginalPrice)
+      if (originalPrice)
+        config.productInfo.product_original_price = originalPrice
+    }
+
+    if (data.itemOnSale && data.salePrice) {
+      config.productInfo.product_price = data.salePrice
+        .toString()
+        .replace(/[$,]/g, '')
+      if (data.discountAmount) {
+        config.productInfo.product_discount_amount = data.discountAmount
       }
+    } else if (data.itemOriginalPrice) {
+      const price = parsePrice(data.itemOriginalPrice)
+      if (price) config.productInfo.product_price = price
+    }
+  }
+
+  setProductMedia(config, data) {
+    if (data.itemThumbNailUrl) {
+      config.productInfo.product_image_url = data.itemThumbNailUrl
+    }
+
+    config.productInfo.product_custom_image_count =
+      data.itemCustomImageCount || 0
+    config.productInfo.product_videos_count = data.itemVideoExists || 0
+    config.productInfo.product_360view_count = this.getDOMElement(
+      '#dealer360-spin-container',
+      'spin360'
+    )
+      ? 1
+      : 0
+    config.productInfo.product_description_char_count =
+      data.itemDescriptionCount || 0
+  }
+
+  setProductType(config, data) {
+    config.productInfo.product_type = data.isUnitInventory
+      ? 'Inventory'
+      : 'Showcase'
+  }
+
+  updateFinancingUrl(config) {
+    const financingAnchor = $(
+      "a[data-form-type='financing'][data-is-external-url='False']"
+    )
+
+    if (financingAnchor.length === 0) return
+
+    try {
+      const financingUrl = new URL(
+        financingAnchor.attr('href'),
+        window.location.origin
+      )
+      financingUrl.searchParams.append(
+        'item_360view_count',
+        config.productInfo.product_360view_count
+      )
+      financingUrl.searchParams.append(
+        'vdp_urgency_active_flag',
+        config.productInfo.vdp_urgency_active
+      )
+      financingAnchor.attr('href', financingUrl.toString())
+    } catch (error) {
+      console.error('Error parsing financing URL in Tealium component:', error)
     }
   }
 
   getPromotionAnalyticsData(config) {
-    var promotionAnalyticsData = document.getElementById('promotion-analytics-data');
-    if(promotionAnalyticsData) {
-      var promotionDataSource = JSON.parse(promotionAnalyticsData.innerHTML.replace(/&quot;/g, '"'));
-      if(promotionDataSource.promotionId) {
-        config.brandPromotionInfo.promotion_id = promotionDataSource.promotionId;
-        config.brandPromotionInfo.promotion_name = promotionDataSource.promotionName; 
-      }
-      if(promotionDataSource.promotionMakeId) {
-        config.brandPromotionInfo.promotion_make_id = promotionDataSource.promotionMakeId;
-        config.brandPromotionInfo.promotion_make = promotionDataSource.promotionMake;
-      }
-      if(promotionDataSource.promotionCategoryId) {
-        config.brandPromotionInfo.promotion_category = promotionDataSource.promotionCategory; 
-        config.brandPromotionInfo.promotion_category_id = promotionDataSource.promotionCategoryId;
-      }
+    const promotionDataSource = this.parsePromotionDataSource()
+    if (!promotionDataSource) return
+
+    this.setPromotionBasicInfo(config, promotionDataSource)
+    this.setPromotionMakeInfo(config, promotionDataSource)
+    this.setPromotionCategoryInfo(config, promotionDataSource)
+  }
+
+  parsePromotionDataSource() {
+    return this.parseJsonElement('promotion-analytics-data')
+  }
+
+  setPromotionBasicInfo(config, data) {
+    if (data.promotionId) {
+      config.brandPromotionInfo.promotion_id = data.promotionId
+      config.brandPromotionInfo.promotion_name = data.promotionName
     }
   }
 
-  // PRESERVE EXACT FUNCTIONALITY - setProductItemsArrays function
+  setPromotionMakeInfo(config, data) {
+    if (data.promotionMakeId) {
+      config.brandPromotionInfo.promotion_make_id = data.promotionMakeId
+      config.brandPromotionInfo.promotion_make = data.promotionMake
+    }
+  }
+
+  setPromotionCategoryInfo(config, data) {
+    if (data.promotionCategoryId) {
+      config.brandPromotionInfo.promotion_category = data.promotionCategory
+      config.brandPromotionInfo.promotion_category_id = data.promotionCategoryId
+    }
+  }
+
   setProductItemsArrays(config, utag_data, attributeName, propertyName) {
-    var makes = [];
-    var years = [];
-    var ids = [];
-    var names = [];
-    var types = [];
-    var onSales = [];
-    var prices = [];
-    var categories = [];
-    var categoryIds = [];
-    var industries = [];
-    var makeIds = [];
-    var msrps = [];
-    var vins = [];
-    var externalColors = [];
-    var productExternalIds = [];
-    var productExternalPlatforms = [];
-    var activePromotions = [];
+    const productArrays = this.initializeProductArrays()
+    const productItems = this.extractProductItems(config)
 
-    var IsProductData = function(data) {
-      var productItemFields = ['itemMake', 'itemYear', 'productId', 'productExternalId', 'isUnitInventory', 'itemOnSale', 'name', 'unitPrice', 'itemType', 'itemTypeId', 'itemIndustry', 'productOwnerId', 'itemOriginalPrice', 'vin', 'primaryColor']
-      return Object.entries(data).filter(item => productItemFields.includes(item[0]) && item[1] != null && !/^\s*$/.test(item[1])).length > 0
+    this.populateProductArrays(productArrays, productItems)
+    this.addArraysToUtag(utag_data, productArrays)
+  }
+
+  initializeProductArrays() {
+    return {
+      makes: [],
+      years: [],
+      ids: [],
+      names: [],
+      types: [],
+      onSales: [],
+      prices: [],
+      categories: [],
+      categoryIds: [],
+      industries: [],
+      makeIds: [],
+      msrps: [],
+      vins: [],
+      externalColors: [],
+      productExternalIds: [],
+      productExternalPlatforms: [],
+      activePromotions: [],
     }
+  }
 
-    $('span.datasource.hidden').each(function() {
-      try {
-        var data = JSON.parse(this.innerText);
-        if(IsProductData(data)) {
-          makes.push(data.itemMake);
-          years.push(data.itemYear);
-          if(config.isExternalBrandedZoneSite && data.productExternalId) {
-            ids.push(parseInt(data.productExternalId));
-            productExternalIds.push(data.productExternalId);
-            productExternalPlatforms.push(config.parentSitePlatformType);
-          } else {
-            ids.push(data.productId);
+  extractProductItems(config) {
+    const productItems = []
+    const productItemFields = ProductHandler.PRODUCT_FIELDS
+
+    $('span.datasource.hidden').each(
+      function () {
+        try {
+          const data = JSON.parse(this.innerText)
+          if (this.isValidProductData(data, productItemFields)) {
+            productItems.push(data)
           }
-          names.push(data.name);
-          types.push(data.isUnitInventory != undefined && data.isUnitInventory.toString().toUpperCase() === 'TRUE' ? 'Inventory' : 'Showcase');
-          onSales.push(data.itemOnSale != undefined && data.itemOnSale.toString().toUpperCase() === 'TRUE' ? '1' : '0');
-          prices.push(data.unitPrice);
-          categories.push(data.itemType);
-          categoryIds.push(data.itemTypeId);
-          industries.push(data.itemIndustry);
-          makeIds.push(data.productOwnerId);
-          msrps.push(data.itemOriginalPrice);
-          vins.push(data.vin);
-          externalColors.push(data.primaryColor);	
-          activePromotions.push(data.arePromotionsAvailable ? 1 : 0);	
+        } catch (error) {
+          console.error('JSON parse failed for unit:', error)
         }
-      } catch (error) {
-        console.error('JSON parse failed for unit: ', error);
-      }
-    });
-      
-    var addToUtag = function(array, name) {
-      if(array.length > 0) {
-        utag_data[name] = array;
-      }
-    }
+      }.bind(this)
+    )
 
-    addToUtag(makes, 'product_list_makes');
-    addToUtag(years, 'product_list_years');
-    addToUtag(ids, 'product_list_ids');
-    addToUtag(names, 'product_list_names');
-    addToUtag(types, 'product_list_types');
-    addToUtag(onSales, 'product_list_on_sale');
-    addToUtag(prices, 'product_list_prices');
-    addToUtag(categories, 'product_list_categories');
-    addToUtag(categoryIds, 'product_list_category_ids');
-    addToUtag(industries, 'product_list_industries');
-    addToUtag(makeIds, 'product_list_make_ids');
-    addToUtag(msrps, 'product_list_msrp');
-    addToUtag(vins, 'product_list_vins');
-    addToUtag(externalColors, 'product_list_external_colors');
-    addToUtag(productExternalIds, 'product_external_id');
-    addToUtag(productExternalPlatforms, 'product_external_platform');
-    addToUtag(activePromotions, 'product_list_did_active');
+    return productItems
   }
 
-  // PRESERVE EXACT FUNCTIONALITY - parseProductsData function
+  isValidProductData(data, fields) {
+    return Object.entries(data).some(
+      ([key, value]) =>
+        fields.includes(key) && value != null && !/^\s*$/.test(String(value))
+    )
+  }
+
+  populateProductArrays(arrays, items) {
+    items.forEach((data) => {
+      arrays.makes.push(data.itemMake)
+      arrays.years.push(data.itemYear)
+      arrays.names.push(data.name)
+      arrays.prices.push(data.unitPrice)
+      arrays.categories.push(data.itemType)
+      arrays.categoryIds.push(data.itemTypeId)
+      arrays.industries.push(data.itemIndustry)
+      arrays.makeIds.push(data.productOwnerId)
+      arrays.msrps.push(data.itemOriginalPrice)
+      arrays.vins.push(data.vin)
+      arrays.externalColors.push(data.primaryColor)
+
+      // Handle external branded zone sites
+      if (config.isExternalBrandedZoneSite && data.productExternalId) {
+        arrays.ids.push(parseInt(data.productExternalId))
+        arrays.productExternalIds.push(data.productExternalId)
+        arrays.productExternalPlatforms.push(config.parentSitePlatformType)
+      } else {
+        arrays.ids.push(data.productId)
+      }
+
+      arrays.types.push(
+        this.getBooleanValue(data.isUnitInventory) ? 'Inventory' : 'Showcase'
+      )
+      arrays.onSales.push(this.getBooleanValue(data.itemOnSale) ? '1' : '0')
+      arrays.activePromotions.push(data.arePromotionsAvailable ? 1 : 0)
+    })
+  }
+
+  getBooleanValue(value) {
+    return value !== undefined && String(value).toUpperCase() === 'TRUE'
+  }
+
+  addArraysToUtag(utag_data, arrays) {
+    Object.entries(ProductHandler.UTAG_MAPPINGS).forEach(
+      ([utagKey, arrayKey]) => {
+        const array = arrays[arrayKey]
+        if (array && array.length > 0) {
+          utag_data[utagKey] = array
+        }
+      }
+    )
+  }
+
   parseProductsData(config, item) {
-    var product = {};
-    if(config.isExternalBrandedZoneSite && item.productExternalId) {
-      product.product_id = item.productExternalId;
-    } else {
-      if (item.productId) {
-        product.product_id = item.productId;
-      }
-    }
-    if (item.item) {
-      product.product_name = item.item;
-    }
-    if (item.itemYear > 0) {
-      product.product_year = item.itemYear;
-    } else if (item.year > 0) {
-      product.product_year = item.year;
-    }
-    if (item.itemMake) {
-      product.product_make = item.itemMake;
-    }
-    if (item.itemMakeId) {
-      product.product_make_id = item.itemMakeId;
-    }
-    if (item.itemModel) {
-      product.product_model = item.itemModel;
-    } else if (item.model) {
-      product.product_model = item.model;
-    }
-    if (item.itemUrl) {
-      product.product_uri = new URL(item.itemUrl, window.location).pathname;
-    } else if (item.itemurl) {
-      product.product_uri = new URL(item.itemurl, window.location).pathname;
-    }
-    if (item.usageStatus) {
-      product.product_condition = item.usageStatus;
-    }
-    if (item.isUnitInventory || item.isUnitInventory === 'True') {
-      product.product_type = 'Inventory';
-    } else {
-      product.product_type = 'Showcase';
-    }
-    if (item.itemDisplayPrice) {
-      var price = parseFloat(item.itemDisplayPrice.replace(/[$,]/g,''));
-      if (price > 0) {
-        product.product_price = price;
-      }
-    }
-    if (item.itemType) {
-      product.product_category = item.itemType;
-    }		
-    if (item.itemTypeId) {
-      product.product_category_id = item.itemTypeId;
-    }	
-    if (item.itemOriginalPrice) {
-      var price = parseFloat(item.itemOriginalPrice.replace(/[$,]/g,''));
-      if (price > 0){
-        product.product_original_price = price;
-      }
-    }
-    if (item.itemIndustry) {
-      product.product_industry = item.itemIndustry;
-    }
-    if (item.itemOnSale) {
-      product.product_on_sale = item.itemOnSale.toUpperCase() === 'TRUE' ? '1' : '0';
-    } else if(item.FormId != 1461) { //1461 is id for 'Can't find what you are looking for' form
-      product.product_on_sale = '0';
-    }
-    if (product.product_price && product.product_original_price) {
-      var price = product.product_original_price - product.product_price;
-      if (price > 0){
-        product.product_discount_amount = price;
-      }
-    }
-    if (item.itemSubtype) {
-      product.product_subcategory = item.itemSubtype;
-    }
-    if (item.itemSubtype && item.itemSubtypeId) {
-      product.product_subcategory_id = item.itemSubtypeId;
-    }
-    if (item.itemCustomImageCount) {
-      product.product_custom_image_count = item.itemCustomImageCount;
-    } else if (item.imageCount >= 0) {
-      product.product_custom_image_count = item.imageCount;
-    }
-    if (item.itemVideoExists) {
-      product.product_videos_count = item.itemVideoExists;
-    } else if (item.videoCount >= 0) {
-      product.product_videos_count = item.videoCount;
-    }
-    if (item.itemDescriptionCount) {
-      product.product_description_char_count = item.itemDescriptionCount;
-    } else if (item.descriptionLength >= 0) {
-      product.product_description_char_count = item.descriptionLength;
-    }
-    if (item.item_360view_count) {
-      product.product_360view_count = item.item_360view_count;
-    }
-    if (item.vdp_urgency_active_flag) {
-      product.vdp_urgency_active = item.vdp_urgency_active_flag;
-    }
-    return product;
+    const product = {}
+
+    this.setProductIdFromItem(config, item, product)
+
+    this.setBasicProductInfoFromItem(item, product)
+
+    this.setProductCategorizationFromItem(item, product)
+
+    this.setProductPricingFromItem(item, product)
+
+    this.setProductMediaFromItem(item, product)
+
+    this.setProductFlagsFromItem(item, product)
+
+    return product
   }
 
-  // PRESERVE EXACT FUNCTIONALITY - getShowCaseData function
+  setProductIdFromItem(config, item, product) {
+    if (config.isExternalBrandedZoneSite && item.productExternalId) {
+      product.product_id = item.productExternalId
+    } else if (item.productId) {
+      product.product_id = item.productId
+    }
+  }
+
+  setBasicProductInfoFromItem(item, product) {
+    if (item.item) product.product_name = item.item
+    if (item.itemModel || item.model) {
+      product.product_model = item.itemModel || item.model
+    }
+
+    if (item.itemYear > 0 || item.year > 0) {
+      product.product_year = item.itemYear > 0 ? item.itemYear : item.year
+    }
+
+    if (item.itemMake) product.product_make = item.itemMake
+    if (item.itemMakeId) product.product_make_id = item.itemMakeId
+
+    const url = item.itemUrl || item.itemurl
+    if (url) {
+      product.product_uri = new URL(url, window.location).pathname
+    }
+
+    if (item.usageStatus) product.product_condition = item.usageStatus
+    product.product_type =
+      item.isUnitInventory || item.isUnitInventory === 'True'
+        ? 'Inventory'
+        : 'Showcase'
+
+    if (item.itemIndustry) product.product_industry = item.itemIndustry
+  }
+
+  setProductCategorizationFromItem(item, product) {
+    if (item.itemType) product.product_category = item.itemType
+    if (item.itemTypeId) product.product_category_id = item.itemTypeId
+    if (item.itemSubtype) product.product_subcategory = item.itemSubtype
+    if (item.itemSubtype && item.itemSubtypeId) {
+      product.product_subcategory_id = item.itemSubtypeId
+    }
+  }
+
+  setProductPricingFromItem(item, product) {
+    if (item.itemDisplayPrice) {
+      const displayPrice = this.parsePrice(item.itemDisplayPrice)
+      if (displayPrice > 0) product.product_price = displayPrice
+    }
+
+    if (item.itemOriginalPrice) {
+      const originalPrice = this.parsePrice(item.itemOriginalPrice)
+      if (originalPrice > 0) product.product_original_price = originalPrice
+    }
+
+    if (item.itemOnSale) {
+      product.product_on_sale =
+        item.itemOnSale.toUpperCase() === 'TRUE' ? '1' : '0'
+    } else if (item.FormId !== 1461) {
+      // 1461 is id for 'Can't find what you are looking for' form
+      product.product_on_sale = '0'
+    }
+
+    if (product.product_price && product.product_original_price) {
+      const discount = product.product_original_price - product.product_price
+      if (discount > 0) product.product_discount_amount = discount
+    }
+  }
+
+  setProductMediaFromItem(item, product) {
+    if (item.itemCustomImageCount !== undefined) {
+      product.product_custom_image_count = item.itemCustomImageCount
+    } else if (item.imageCount >= 0) {
+      product.product_custom_image_count = item.imageCount
+    }
+
+    if (item.itemVideoExists !== undefined) {
+      product.product_videos_count = item.itemVideoExists
+    } else if (item.videoCount >= 0) {
+      product.product_videos_count = item.videoCount
+    }
+
+    if (item.itemDescriptionCount !== undefined) {
+      product.product_description_char_count = item.itemDescriptionCount
+    } else if (item.descriptionLength >= 0) {
+      product.product_description_char_count = item.descriptionLength
+    }
+  }
+
+  setProductFlagsFromItem(item, product) {
+    if (item.item_360view_count) {
+      product.product_360view_count = item.item_360view_count
+    }
+
+    if (item.vdp_urgency_active_flag) {
+      product.vdp_urgency_active = item.vdp_urgency_active_flag
+    }
+  }
+
+  parsePrice(priceString) {
+    return window.analyticsUtils.parsePrice(priceString)
+  }
+
   getShowCaseData(utag_data) {
-    var showCaseData = {};
+    var showCaseData = {}
     if (utag_data.page_make) {
-      showCaseData.page_make = utag_data.page_make.toLowerCase();
+      showCaseData.page_make = utag_data.page_make.toLowerCase()
     }
     if (utag_data.page_make_id) {
-      showCaseData.page_make_id = utag_data.page_make_id;
+      showCaseData.page_make_id = utag_data.page_make_id
     }
     if (utag_data.page_category) {
-      showCaseData.page_category = utag_data.page_category;
+      showCaseData.page_category = utag_data.page_category
     }
     if (utag_data.page_category_id) {
-      showCaseData.page_category_id = utag_data.page_category_id;
+      showCaseData.page_category_id = utag_data.page_category_id
     }
     if (utag_data.page_subcategory) {
-      showCaseData.page_subcategory = utag_data.page_subcategory;
+      showCaseData.page_subcategory = utag_data.page_subcategory
     }
     if (utag_data.page_subcategory_id) {
-      showCaseData.page_subcategory_id = utag_data.page_subcategory_id;
+      showCaseData.page_subcategory_id = utag_data.page_subcategory_id
     }
-    return showCaseData;
+    return showCaseData
   }
 
-  // PRESERVE EXACT FUNCTIONALITY - getPromotionData function
   getPromotionData(form, data) {
-    var promotion = {};
+    var promotion = {}
 
-    if(localStorage && localStorage.selectedPromotionIds) {
-      promotion.did_promotions_selected = localStorage.selectedPromotionIds;
-      promotion.campaign_id = localStorage.selectedPromotionIds;
+    if (localStorage && localStorage.selectedPromotionIds) {
+      promotion.did_promotions_selected = localStorage.selectedPromotionIds
+      promotion.campaign_id = localStorage.selectedPromotionIds
     }
 
-    if(form) {
-      promotion.did_form_id = form.formId;
-      promotion.did_form_name = form.formName;
-      promotion.did_form_submission_first_name = form.form_submission_first_name;
-      promotion.did_form_submission_last_name = form.form_submission_last_name;
+    if (form) {
+      promotion.did_form_id = form.formId
+      promotion.did_form_name = form.formName
+      promotion.did_form_submission_first_name = form.form_submission_first_name
+      promotion.did_form_submission_last_name = form.form_submission_last_name
     }
-    
-    if(data && data.contact) {
-      promotion.did_form_submission_perferred_contact = data.contact;
-      if(data.contact === 'email') {
-        promotion.did_form_submission_email = data.email;
+
+    if (data && data.contact) {
+      promotion.did_form_submission_perferred_contact = data.contact
+      if (data.contact === 'email') {
+        promotion.did_form_submission_email = data.email
       }
-      if(data.contact === 'phone') {
-        promotion.did_form_submission_phone = data.phone;
+      if (data.contact === 'phone') {
+        promotion.did_form_submission_phone = data.phone
       }
     }
 
-    return promotion;	
+    return promotion
   }
 }
 
-// Initialize product handler (self-contained like productAiExpert.js)
-(function() {
-  // ProductHandler is available in this script's scope
-  window.productHandler = new ProductHandler();
-})();
+// Initialize product handler (self-contained)
+;(function () {
+  window.productHandler = new ProductHandler()
+})()
