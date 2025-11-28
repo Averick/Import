@@ -3,6 +3,8 @@ class FormHandler {
     this.initialized = false
     this.interactionTracked = new Set()
     this.formSubmissionTracked = new Set()
+    this.formLoadTracked = new Set()
+    this.formTrackingSetup = false
     this.trackingCallback = null
   }
 
@@ -103,58 +105,110 @@ class FormHandler {
   }
 
   setupFormTracking() {
-    // Track form loads
-    this.trackFormLoads()
+    // Prevent multiple calls to setupFormTracking
+    if (this.formTrackingSetup) {
+      console.log('Form tracking already set up, skipping...')
+      return
+    }
+
+    this.formTrackingSetup = true
+
+    // Only track static form loads on appropriate page types
+    // (Modal forms are tracked separately via show.bs.modal event)
+    this.trackStaticFormLoads()
 
     // Set up observers for dynamically loaded forms
     this.observeForNewForms()
   }
 
-  trackFormLoads() {
+  trackStaticFormLoads() {
+    // Check page type from utag_data to determine if we should process static forms
+    const pageType = window.utag_data?.page_type || 'other'
+
+    console.log(
+      `🔍 Page type: ${pageType} - Checking if static form loads should be tracked`
+    )
+
+    // The old template processes static LeadForms on all pages, but we should be more selective
+    // Based on the issue description, forms should only trigger form_load when modals are opened
+    // So we should NOT automatically process all LeadForms on page load for search pages
+    if (pageType === 'search') {
+      console.log(
+        `⏭️ Skipping static form loads on search page - forms will only trigger when modals are opened`
+      )
+      return
+    }
+
     const forms = document.querySelectorAll('.component[class*=" LeadForm_"]')
+    console.log(
+      `🔍 trackStaticFormLoads called for ${pageType} page - Found ${forms.length} LeadForm components`
+    )
+
     forms.forEach((form) => {
-      // Handle previously excluded form types with specific processing
-      if (form.closest('div[class*="Staff_"]')) {
-        this.processSpecialFormLoad(form, 'staff')
-        return
-      }
-      if (form.closest('div[class*="OfferedServices_"]')) {
-        this.processSpecialFormLoad(form, 'offered_services')
-        return
-      }
-      if (form.closest('div[class*="ShowcaseRoot_"]')) {
-        this.processSpecialFormLoad(form, 'showcase')
-        return
-      }
-      if (form.closest('div[class*="VDP-Unit-Detail_"]')) {
-        this.processSpecialFormLoad(form, 'vdp_unit_detail')
-        return
-      }
-      if (form.closest('div[class*="SearchRoot_"]')) {
-        this.processSpecialFormLoad(form, 'search')
+      // Create unique identifier for this form to prevent duplicates
+      const formId =
+        form
+          .querySelector('span[data-form-id]')
+          ?.getAttribute('data-form-id') || 'unknown'
+      const formName =
+        form
+          .querySelector('span[data-form-name]')
+          ?.getAttribute('data-form-name') || 'unknown'
+      const formKey = `${formId}_${formName}_${form.outerHTML.length}` // Include length to ensure uniqueness
+
+      // Skip if already tracked
+      if (this.formLoadTracked.has(formKey)) {
+        console.log(
+          `⏭️ Skipping already tracked form: ${formName} (ID: ${formId})`
+        )
         return
       }
 
-      // Additional exclusion from original
-      const formIdElement = form.querySelector('span[data-form-id]')
-      const formId = formIdElement
-        ? formIdElement.getAttribute('data-form-id')
-        : null
-      if (formId == 1461 && screen.width >= 768) return // Desktop "Can't Find" form
+      // Follow EXACT exclusion logic from old template (return true = skip)
+      if (form.closest('div[class*="Staff_"]')) {
+        console.log(`⏭️ Skipping Staff form: ${formName} (ID: ${formId})`)
+        return // Skip staff forms (matches old template: return true)
+      }
+      if (form.closest('div[class*="OfferedServices_"]')) {
+        console.log(
+          `⏭️ Skipping OfferedServices form: ${formName} (ID: ${formId})`
+        )
+        return // Skip offered services forms (matches old template: return true)
+      }
+      if (form.closest('div[class*="ShowcaseRoot_"]')) {
+        console.log(
+          `⏭️ Skipping ShowcaseRoot form: ${formName} (ID: ${formId})`
+        )
+        return // Skip showcase forms (matches old template: return true)
+      }
+      if (form.closest('div[class*="VDP-Unit-Detail_"]')) {
+        console.log(
+          `⏭️ Skipping VDP-Unit-Detail form: ${formName} (ID: ${formId})`
+        )
+        return // Skip VDP unit detail forms (matches old template: return true)
+      }
+      if (form.closest('div[class*="SearchRoot_"]')) {
+        console.log(`⏭️ Skipping SearchRoot form: ${formName} (ID: ${formId})`)
+        return // Skip search forms (matches old template: return true)
+      }
+
+      // Skip "Can't Find What You're Looking For?" form on desktop (exact logic from old template)
+      if (formId == 1461 && screen.width >= 768) {
+        console.log(
+          `⏭️ Skipping Can't Find form (desktop): ${formName} (ID: ${formId})`
+        )
+        return // Skip desktop "Can't Find" form (matches old template: return true)
+      }
+
+      // Mark as tracked BEFORE processing to prevent duplicates
+      this.formLoadTracked.add(formKey)
+
+      console.log(
+        `🔍 Processing static form_load for: ${formName} (ID: ${formId}) - Key: ${formKey}`
+      )
 
       this.processFormLoad(form)
     })
-  }
-
-  // Process special form types that were previously excluded
-  processSpecialFormLoad(formElement, context) {
-    const formData = this.extractFormData(formElement)
-    formData.form_context = context
-
-    if (this.isValidForm(formData)) {
-      this.trackEvent('form_load', formData)
-      this.setupFormInteraction(formElement, formData)
-    }
   }
 
   processFormLoad(formElement) {
@@ -608,6 +662,8 @@ class FormHandler {
   destroy() {
     this.interactionTracked.clear()
     this.formSubmissionTracked.clear()
+    this.formLoadTracked.clear()
+    this.formTrackingSetup = false
     this.isInitialized = false
   }
 }
