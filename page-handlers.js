@@ -38,9 +38,9 @@ class PageHandlers {
   handleSearchPageLogic() {
     console.log('Setting up search page specific logic')
 
-    // Search page specific event tracking
-    this.setupSearchResultTracking()
-    this.setupFilterTracking()
+    // Search page logic matches old design - no individual result click tracking
+    // Old design only tracks: page load, product arrays, header banner data
+    this.setupSearchPageData()
   }
 
   handleBlogPageLogic() {
@@ -235,39 +235,11 @@ class PageHandlers {
     }
   }
 
-  // Search page specific methods
-  setupSearchResultTracking() {
-    // Track search result clicks
-    document.addEventListener('click', (e) => {
-      const searchResult = e.target.closest('.search-result-item')
-      if (searchResult) {
-        this.trackSearchResultClick(searchResult)
-      }
-    })
-  }
-
-  trackSearchResultClick(resultElement) {
-    try {
-      const clickData = {
-        tealium_event: 'search_result_click',
-      }
-
-      // Extract result data
-      const productId = resultElement.getAttribute('data-product-id')
-      const productName = resultElement
-        .querySelector('.product-name')
-        ?.textContent?.trim()
-      const position = resultElement.getAttribute('data-position')
-
-      if (productId) clickData.product_id = productId
-      if (productName) clickData.product_name = productName
-      if (position) clickData.result_position = position
-
-      const final = Object.assign({}, this.config?.siteUser || {}, clickData)
-      window.analyticsUtils?.triggerUtagLink(final, 'search_result_click')
-    } catch (error) {
-      console.error('Could not track search result click', error)
-    }
+  // Search page specific methods (matches old design)
+  setupSearchPageData() {
+    // Extract search page data like old design does
+    // This should be handled by product-handler.js setProductItemsArrays()
+    console.log('Search page data setup - delegated to product-handler.js')
   }
 
   setupFilterTracking() {
@@ -390,79 +362,6 @@ class PageHandlers {
       window.analyticsUtils?.triggerUtagLink(final, 'product_details_action')
     } catch (error) {
       console.error('Could not track product details action', error)
-    }
-  }
-
-  // Home page specific methods
-  setupHomePageTracking() {
-    // Track home page specific interactions
-    // Carousel clicks are handled by event-handler.js
-    // Focus on other home page elements
-
-    // Track hero banner clicks
-    document.addEventListener('click', (e) => {
-      const heroBanner = e.target.closest('.hero-banner, .banner-section')
-      if (heroBanner) {
-        this.trackHomeBannerClick(heroBanner)
-      }
-    })
-
-    // Track featured content clicks
-    document.addEventListener('click', (e) => {
-      const featuredContent = e.target.closest(
-        '.featured-content, .highlight-section'
-      )
-      if (featuredContent) {
-        this.trackHomeFeaturedClick(featuredContent)
-      }
-    })
-  }
-
-  trackHomeBannerClick(bannerElement) {
-    try {
-      const bannerData = {
-        tealium_event: 'home_banner_click',
-      }
-
-      const bannerTitle =
-        bannerElement.getAttribute('data-banner-title') ||
-        bannerElement
-          .querySelector('.banner-title, h1, h2')
-          ?.textContent?.trim()
-      const bannerType = bannerElement.getAttribute('data-banner-type')
-
-      if (bannerTitle) bannerData.banner_title = bannerTitle
-      if (bannerType) bannerData.banner_type = bannerType
-      bannerData.site_sub_section = 'home'
-
-      const final = Object.assign({}, this.config?.siteUser || {}, bannerData)
-      window.analyticsUtils?.triggerUtagLink(final, 'home_banner_click')
-    } catch (error) {
-      console.error('Could not track home banner click', error)
-    }
-  }
-
-  trackHomeFeaturedClick(featuredElement) {
-    try {
-      const featuredData = {
-        tealium_event: 'home_featured_click',
-      }
-
-      const contentTitle =
-        featuredElement.getAttribute('data-content-title') ||
-        featuredElement
-          .querySelector('.content-title, .title')
-          ?.textContent?.trim()
-      const contentType = featuredElement.getAttribute('data-content-type')
-
-      if (contentTitle) featuredData.content_title = contentTitle
-      if (contentType) featuredData.content_type = contentType
-      featuredData.site_sub_section = 'home'
-
-      const final = Object.assign({}, this.config?.siteUser || {}, featuredData)
-      window.analyticsUtils?.triggerUtagLink(final, 'home_featured_click')
-    } catch (error) {
-      console.error('Could not track home featured click', error)
     }
   }
 
