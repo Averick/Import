@@ -249,9 +249,63 @@ class AnalyticsManager {
           form.tealium_event = 'did_get_a_quote_form_submit'
         }
 
-        var final = Object.assign({}, this.config.siteUser, form)
+        // Extract productDetails based on pageType (matches old template logic)
+        const pageType = this.utag_data?.page_type || 'other'
+        let productDetails = {}
+
+        if (pageType === 'search') {
+          // For search pages, parse from form data
+          if (e.detail && e.detail.formData && window.productHandler) {
+            productDetails =
+              window.productHandler.parseProductsData(
+                this.config,
+                e.detail.formData
+              ) || {}
+          }
+        } else if (pageType === 'finance') {
+          // For finance pages, get from query string
+          if (
+            window.productHandler &&
+            window.productHandler.getProductsDataFromQueryString
+          ) {
+            productDetails =
+              window.productHandler.getProductsDataFromQueryString() || {}
+          }
+        } else {
+          // For product details and other pages, use global productInfo
+          productDetails = this.config.productInfo || {}
+        }
+
+        // Get showcase and promotion data (matches old template)
+        const showcaseData =
+          window.productHandler?.getShowCaseData?.(this.utag_data) || {}
+        const promotionData =
+          window.productHandler?.getPromotionData?.(form, e.detail?.formData) ||
+          {}
+
+        // Merge all data (matches old template structure)
+        var final = Object.assign(
+          {},
+          this.config.siteUser,
+          form,
+          productDetails,
+          showcaseData,
+          promotionData
+        )
+
         if (this.utag_data.page_h1) {
           final.page_h1 = this.utag_data.page_h1
+        }
+
+        // Set page make info from product details (matches old template)
+        if (productDetails.product_make) {
+          final.page_make = productDetails.product_make.toLowerCase()
+        }
+        if (productDetails.product_make_id) {
+          final.page_make_id = productDetails.product_make_id
+        }
+        if (this.config.pageMakeGroup) {
+          final.page_make_group = this.config.pageMakeGroup
         }
 
         window.analyticsUtils.triggerUtagLink(final, form.tealium_event)
@@ -266,22 +320,44 @@ class AnalyticsManager {
   }
 
   setupInventoryPromoHandler() {
-    // Limited time offer click handler (from old template)
-    const inventoryPromoMessage = this.getCachedElement(
-      '#inventoryPromoMessage',
-      'inventoryPromoMessage'
-    )[0]
-    if (inventoryPromoMessage) {
-      inventoryPromoMessage.addEventListener('click', () => {
-        this.executeWithErrorHandling(() => {
-          this.utag_data.tealium_event = 'did_limited_time_offer_click'
-          window.analyticsUtils.triggerUtagLink(
-            this.utag_data,
-            'did_limited_time_offer_click'
-          )
-        }, 'Could not trigger limited time offer click event')
-      })
+    // Set up promotion link tracking (from old template)
+    const limitedTimeOfferBtnClicked = 'limitedTimeOfferBtnClicked_flag'
+
+    // Track promotion link clicks and set localStorage flag
+    $('.promotion-link').click(function () {
+      localStorage.setItem(limitedTimeOfferBtnClicked, true)
+    })
+
+    // Product details page specific handling (from old template)
+    const pageType = this.utag_data?.page_type || 'other'
+    if (pageType === 'product details') {
+      // Check if user came from promotion link click
+      if (localStorage.getItem(limitedTimeOfferBtnClicked)) {
+        this.handleLimitedTimeOfferButtonClick()
+        localStorage.removeItem(limitedTimeOfferBtnClicked)
+      }
+
+      // Set up inventory promo message click handler
+      const inventoryPromoMessage = document.getElementById(
+        'inventory_promoMessage'
+      )
+      if (inventoryPromoMessage) {
+        inventoryPromoMessage.addEventListener('click', () => {
+          this.handleLimitedTimeOfferButtonClick()
+        })
+      }
     }
+  }
+
+  // Handle limited time offer button click (from old template)
+  handleLimitedTimeOfferButtonClick() {
+    this.executeWithErrorHandling(() => {
+      this.utag_data.tealium_event = 'did_limited_time_offer_click'
+      window.analyticsUtils.triggerUtagLink(
+        this.utag_data,
+        'did_limited_time_offer_click'
+      )
+    }, 'Could not trigger limited time offer click event')
   }
 
   setupEcommerceEventListeners() {
