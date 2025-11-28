@@ -1,426 +1,258 @@
 class AnalyticsManager {
   constructor() {
     this.initialized = false
-    this.utag_data = {}
     this.config = null
-    this.domCache = {}
+    this.utag_data = null
   }
 
-  executeWithErrorHandling(operation, errorMessage) {
+  initialize(options = {}) {
+    if (this.initialized) {
+      console.log('Analytics Manager already initialized')
+      return
+    }
+
     try {
-      return operation()
-    } catch (err) {
-      console.error(errorMessage, err.message)
-    }
-  }
+      // Initialize configuration
+      this.config = this.initializeConfig(options)
+      this.utag_data = window.utag_data || {}
 
-  getCachedElement(selector, cacheKey) {
-    return $(window.analyticsUtils.getCachedElement(selector, cacheKey))
-  }
-
-  triggerUtagView(customData = {}) {
-    window.analyticsUtils.triggerUtagView(this.utag_data, customData)
-  }
-
-  triggerUtagLink(eventType, customData = {}) {
-    window.analyticsUtils.triggerUtagLink(this.utag_data, eventType, customData)
-  }
-
-  initialize(config) {
-    console.log('Initializing Tealium Analytics Manager')
-    this.config = config
-
-    // Process configuration and create utag_data
-    this.processConfiguration()
-
-    window.utag_data = this.utag_data
-
-    this.initialized = true
-
-    this.initializePageHandlers()
-
-    return this
-  }
-
-  processConfiguration() {
-    // Create base utag_data from siteUser
-    this.utag_data = Object.assign({}, this.config.siteUser)
-
-    // Add page-specific data
-    this.addPageDataToUtag()
-
-    // Add search data if applicable
-    this.addSearchDataToUtag()
-  }
-
-  addPageDataToUtag() {
-    const config = this.config
-
-    if (config.pageType) this.utag_data.page_type = config.pageType
-    if (config.pageSubType) this.utag_data.page_sub_type = config.pageSubType
-    if (config.pageBrand) this.utag_data.page_make = config.pageBrand
-    if (config.pageBrandId) this.utag_data.page_make_id = config.pageBrandId
-    if (config.pageBrandCategory)
-      this.utag_data.page_category = config.pageBrandCategory
-    if (config.pageBrandCategoryId)
-      this.utag_data.page_category_id = config.pageBrandCategoryId
-    if (config.pageBrandSubCategory)
-      this.utag_data.page_sub_category = config.pageBrandSubCategory
-    if (config.pageBrandSubCategoryId)
-      this.utag_data.page_sub_category_id = config.pageBrandSubCategoryId
-    if (config.pageMakeGroup)
-      this.utag_data.page_make_group = config.pageMakeGroup
-  }
-
-  addSearchDataToUtag() {
-    const config = this.config
-
-    // Process search filters if this is a search page
-    if (config.pageType === 'search') {
-      this.processSearchFilters()
-    }
-
-    if (config.searchKeyword)
-      this.utag_data.search_keyword = config.searchKeyword
-    if (
-      config.searchPageAppliedFilters &&
-      config.searchPageAppliedFilters.length > 0
-    ) {
-      this.utag_data.search_filters = config.searchPageAppliedFilters
-    }
-  }
-
-  processSearchFilters() {
-    const url = decodeURI(window.location.href)
-    const inventoryIndex = url.indexOf('/inventory/')
-
-    if (inventoryIndex !== -1) {
-      const segments = url.substring(inventoryIndex + 11).split('/')
-      const filters = {}
-
-      // Process segments in pairs (filterName/filterValue)
-      for (let i = 0; i < segments.length - 1; i += 2) {
-        const key = segments[i]
-        const value = segments[i + 1]
-
-        if (key && value) {
-          ;(filters[key] = filters[key] || []).push(value)
-        }
-      }
-
-      // Separate query from other filters
-      this.config.searchPageAppliedFilters = []
-      Object.keys(filters).forEach((key) => {
-        if (key === 'query') {
-          this.config.searchKeyword = filters[key]
-        } else {
-          this.config.searchPageAppliedFilters.push(
-            key + ':' + filters[key].join(',')
-          )
-        }
+      console.log('🚀 Analytics Manager initializing...', {
+        pageType: this.utag_data.page_type,
+        isExternalBrandedZone: this.config.isExternalBrandedZoneSite,
+        hasProductInfo: !!this.config.productInfo,
       })
+
+      // Initialize all handlers in the correct order
+      this.initializeHandlers()
+
+      // Set up page view tracking
+      this.trackPageView()
+
+      this.initialized = true
+      console.log('✅ Analytics Manager initialized successfully')
+    } catch (error) {
+      console.error('❌ Analytics Manager initialization failed:', error)
     }
   }
 
-  initializePageHandlers() {
-    $(document).ready(() => {
-      this.handleDocumentReady()
-    })
+  initializeConfig(options) {
+    // Use global siteUser variable defined in template (matches old design)
+    const siteUserData = window.siteUser || {}
 
-    $(window).load(() => {
-      this.handleWindowLoad()
-    })
-  }
+    // Determine if this is an external branded zone site
+    const isExternalBrandedZoneSite =
+      window.utag_data?.site_type?.toLowerCase().includes('external') || false
 
-  handleDocumentReady() {
-    this.executeWithErrorHandling(() => {
-      if (window.productHandler) {
-        window.productHandler.getProductAnalyticsData(this.config)
-        this.utag_data = $.extend({}, this.utag_data, this.config.productInfo)
-      }
-    }, 'Error processing product analytics:')
-
-    this.executeWithErrorHandling(() => {
-      if (window.productHandler) {
-        window.productHandler.getPromotionAnalyticsData(this.config)
-        this.utag_data = $.extend(
-          {},
-          this.utag_data,
-          this.config.brandPromotionInfo
-        )
-      }
-    }, 'Error processing promotion analytics:')
-
-    this.utag_data.podium_chatbox_active =
-      this.getCachedElement("div[class*='Premium-Texting_']", 'podiumChatbox')
-        .length != 0
-        ? 1
-        : 0
-
+    // Get product info if available
+    let productInfo = {}
     if (
-      this.getCachedElement('#pageNotFoundModal', 'pageNotFoundModal').length
+      window.productHandler &&
+      typeof window.productHandler.getProductInfo === 'function'
     ) {
-      this.utag_data.tealium_event = 'error_view'
-      this.utag_data.site_section = 'error'
-      this.utag_data.site_sub_section = 'error'
-      this.utag_data.page_error_code = '404'
+      productInfo = window.productHandler.getProductInfo() || {}
     }
 
-    if (window.eventHandler) {
-      window.eventHandler.initialize(this.config, this.utag_data)
+    // Determine page make group
+    let pageMakeGroup = null
+    if (window.utag_data?.page_make_group) {
+      pageMakeGroup = window.utag_data.page_make_group
+    } else if (productInfo.product_make_group) {
+      pageMakeGroup = productInfo.product_make_group
     }
 
-    var allH1InHeader = this.getCachedElement('h1', 'h1Elements')
-    if (allH1InHeader.length > 0) {
-      this.utag_data.page_h1 = allH1InHeader[0].innerText
+    return {
+      siteUser: siteUserData,
+      isExternalBrandedZoneSite,
+      productInfo,
+      pageMakeGroup,
+      ...options,
+    }
+  }
+
+  initializeHandlers() {
+    // Initialize analytics utilities first
+    if (
+      window.analyticsUtils &&
+      typeof window.analyticsUtils.initialize === 'function'
+    ) {
+      window.analyticsUtils.initialize()
     }
 
-    if (window.pageHandlers) {
-      window.pageHandlers.handlePageSpecificLogic(this.config, this.utag_data)
+    // Initialize product handler
+    if (
+      window.productHandler &&
+      typeof window.productHandler.initialize === 'function'
+    ) {
+      window.productHandler.initialize(this.config)
     }
 
-    this.executeWithErrorHandling(() => {
-      this.config.loadTealiumScript() // Script should be loaded after all utag_data datapoints are created
-    }, 'Could not load tealium script.')
+    // Initialize event handler with DID events
+    if (
+      window.eventHandler &&
+      typeof window.eventHandler.initialize === 'function'
+    ) {
+      window.eventHandler.initialize(this.config)
+    }
 
-    if (window.formHandler) {
+    // Initialize page handlers with eCommerce events
+    if (
+      window.pageHandlers &&
+      typeof window.pageHandlers.initialize === 'function'
+    ) {
+      window.pageHandlers.initialize(this.config, this.utag_data)
+    }
+
+    // Initialize form handler (should be last to ensure other handlers are ready)
+    if (
+      window.formHandler &&
+      typeof window.formHandler.initialize === 'function'
+    ) {
       window.formHandler.initialize(this.config, this.utag_data)
-    }
 
+      // Setup form tracking after initialization
+      if (typeof window.formHandler.setupFormTracking === 'function') {
+        window.formHandler.setupFormTracking()
+      }
+    }
+  }
+
+  trackPageView() {
+    try {
+      // Basic page view tracking
+      const pageViewData = Object.assign({}, this.config.siteUser)
+
+      // Add page-specific data
+      if (this.utag_data.page_h1) {
+        pageViewData.page_h1 = this.utag_data.page_h1
+      }
+      if (this.utag_data.page_type) {
+        pageViewData.page_type = this.utag_data.page_type
+      }
+      if (this.config.pageMakeGroup) {
+        pageViewData.page_make_group = this.config.pageMakeGroup
+      }
+
+      // Add product info for product pages
+      if (
+        this.config.productInfo &&
+        Object.keys(this.config.productInfo).length > 0
+      ) {
+        Object.assign(pageViewData, this.config.productInfo)
+      }
+
+      // Trigger page view
+      if (
+        window.analyticsUtils &&
+        typeof window.analyticsUtils.triggerUtagView === 'function'
+      ) {
+        window.analyticsUtils.triggerUtagView(pageViewData)
+      }
+    } catch (error) {
+      console.error('Could not track page view:', error)
+    }
+  }
+
+  // Method to update configuration (useful for SPA navigation)
+  updateConfig(newConfig) {
+    this.config = Object.assign({}, this.config, newConfig)
+
+    // Notify handlers of config update
     if (
-      this.getCachedElement(
-        '[class*="New-Holland-CE-Dealer-Landing-Page"]',
-        'newHollandCE'
-      ).length > 0
+      window.formHandler &&
+      typeof window.formHandler.updateConfig === 'function'
     ) {
-      this.utag_data.tealium_event = 'oem_standard_branded_zone_view'
-      this.utag_data.page_make = 'new holland construction'
-      this.utag_data.page_make_group = 'new holland construction'
+      window.formHandler.updateConfig(this.config)
     }
-
-    // Initialize custom document event listeners
-    this.setupCustomEventListeners()
+    if (
+      window.eventHandler &&
+      typeof window.eventHandler.updateConfig === 'function'
+    ) {
+      window.eventHandler.updateConfig(this.config)
+    }
+    if (
+      window.pageHandlers &&
+      typeof window.pageHandlers.updateConfig === 'function'
+    ) {
+      window.pageHandlers.updateConfig(this.config)
+    }
   }
 
-  setupCustomEventListeners() {
-    // DIDViewOfferDetailsClick event listener (from old template)
-    document.addEventListener('DIDViewOfferDetailsClick', (e) => {
-      this.executeWithErrorHandling(() => {
-        var promo = {}
-        promo.tealium_event = 'did_view_offer_details_click'
-        if (e.detail) {
-          promo.did_promotions_name = e.detail.promotionName
-          promo.campaign_id = e.detail.promotionId
-        }
-        var final = Object.assign({}, this.config.siteUser, promo)
-        window.analyticsUtils.triggerUtagLink(
-          final,
-          'did_view_offer_details_click'
-        )
-      }, 'Could not trigger utag.link on promotion ' + (e.detail?.promotionId || ''))
-    })
-
-    // DIDViewMoreClick event listener (from old template)
-    document.addEventListener('DIDViewMoreClick', (e) => {
-      this.executeWithErrorHandling(() => {
-        var promo = {}
-        promo.tealium_event = 'did_view_more_click'
-        if (e.detail) {
-          promo.did_promotions_name = e.detail.promotionName
-          promo.campaign_id = e.detail.promotionId
-        }
-        var final = Object.assign({}, this.config.siteUser, promo)
-        window.analyticsUtils.triggerUtagLink(final, 'did_view_more_click')
-      }, 'Could not trigger utag.link on promotion ' + (e.detail?.promotionId || ''))
-    })
-
-    // FormSubmissionDetails event listener (from old template)
-    document.addEventListener('FormSubmissionDetails', (e) => {
-      this.executeWithErrorHandling(() => {
-        var form = {}
-        form.tealium_event = 'form_submit'
-
-        if (e.detail && e.detail.formData) {
-          form = Object.assign({}, form, e.detail.formData)
-        }
-
-        // Handle specific form submission types
-        if (form.form_name === 'Get A Quote') {
-          form.tealium_event = 'did_get_a_quote_form_submit'
-        }
-
-        // Extract productDetails based on pageType (matches old template logic)
-        const pageType = this.utag_data?.page_type || 'other'
-        let productDetails = {}
-
-        if (pageType === 'search') {
-          // For search pages, parse from form data
-          if (e.detail && e.detail.formData && window.productHandler) {
-            productDetails =
-              window.productHandler.parseProductsData(
-                this.config,
-                e.detail.formData
-              ) || {}
-          }
-        } else if (pageType === 'finance') {
-          // For finance pages, get from query string
-          if (
-            window.productHandler &&
-            window.productHandler.getProductsDataFromQueryString
-          ) {
-            productDetails =
-              window.productHandler.getProductsDataFromQueryString() || {}
-          }
-        } else {
-          // For product details and other pages, use global productInfo
-          productDetails = this.config.productInfo || {}
-        }
-
-        // Get showcase and promotion data (matches old template)
-        const showcaseData =
-          window.productHandler?.getShowCaseData?.(this.utag_data) || {}
-        const promotionData =
-          window.productHandler?.getPromotionData?.(form, e.detail?.formData) ||
-          {}
-
-        // Merge all data (matches old template structure)
-        var final = Object.assign(
-          {},
-          this.config.siteUser,
-          form,
-          productDetails,
-          showcaseData,
-          promotionData
-        )
-
-        if (this.utag_data.page_h1) {
-          final.page_h1 = this.utag_data.page_h1
-        }
-
-        // Set page make info from product details (matches old template)
-        if (productDetails.product_make) {
-          final.page_make = productDetails.product_make.toLowerCase()
-        }
-        if (productDetails.product_make_id) {
-          final.page_make_id = productDetails.product_make_id
-        }
-        if (this.config.pageMakeGroup) {
-          final.page_make_group = this.config.pageMakeGroup
-        }
-
-        window.analyticsUtils.triggerUtagLink(final, form.tealium_event)
-      }, 'Could not trigger utag.link method for form submission')
-    })
-
-    // Inventory promo message click handler (from old template)
-    this.setupInventoryPromoHandler()
-
-    // eCommerce event listeners
-    this.setupEcommerceEventListeners()
+  // Method to get current configuration (for debugging)
+  getConfig() {
+    return { ...this.config }
   }
 
-  setupInventoryPromoHandler() {
-    // Set up promotion link tracking (from old template)
-    const limitedTimeOfferBtnClicked = 'limitedTimeOfferBtnClicked_flag'
+  // Method to get initialization status
+  isInitialized() {
+    return this.initialized
+  }
 
-    // Track promotion link clicks and set localStorage flag
-    $('.promotion-link').click(function () {
-      localStorage.setItem(limitedTimeOfferBtnClicked, true)
-    })
+  // Method to reinitialize (useful for SPA navigation)
+  reinitialize(options = {}) {
+    this.destroy()
+    this.initialize(options)
+  }
 
-    // Product details page specific handling (from old template)
-    const pageType = this.utag_data?.page_type || 'other'
-    if (pageType === 'product details') {
-      // Check if user came from promotion link click
-      if (localStorage.getItem(limitedTimeOfferBtnClicked)) {
-        this.handleLimitedTimeOfferButtonClick()
-        localStorage.removeItem(limitedTimeOfferBtnClicked)
+  // Cleanup method
+  destroy() {
+    try {
+      // Cleanup all handlers
+      if (
+        window.formHandler &&
+        typeof window.formHandler.destroy === 'function'
+      ) {
+        window.formHandler.destroy()
+      }
+      if (
+        window.eventHandler &&
+        typeof window.eventHandler.destroy === 'function'
+      ) {
+        window.eventHandler.destroy()
+      }
+      if (
+        window.pageHandlers &&
+        typeof window.pageHandlers.destroy === 'function'
+      ) {
+        window.pageHandlers.destroy()
+      }
+      if (
+        window.productHandler &&
+        typeof window.productHandler.destroy === 'function'
+      ) {
+        window.productHandler.destroy()
       }
 
-      // Set up inventory promo message click handler
-      const inventoryPromoMessage = document.getElementById(
-        'inventory_promoMessage'
-      )
-      if (inventoryPromoMessage) {
-        inventoryPromoMessage.addEventListener('click', () => {
-          this.handleLimitedTimeOfferButtonClick()
-        })
-      }
+      this.initialized = false
+      this.config = null
+      this.utag_data = null
+
+      console.log('Analytics Manager destroyed')
+    } catch (error) {
+      console.error('Error during Analytics Manager cleanup:', error)
     }
-  }
-
-  // Handle limited time offer button click (from old template)
-  handleLimitedTimeOfferButtonClick() {
-    this.executeWithErrorHandling(() => {
-      this.utag_data.tealium_event = 'did_limited_time_offer_click'
-      window.analyticsUtils.triggerUtagLink(
-        this.utag_data,
-        'did_limited_time_offer_click'
-      )
-    }, 'Could not trigger limited time offer click event')
-  }
-
-  setupEcommerceEventListeners() {
-    // eCommerce event handling (from old template)
-    $(document).on('ecommerce_part_modify_cart', (event) => {
-      this.executeWithErrorHandling(() => {
-        if (
-          event.data &&
-          event.data.tealium_event === 'ecommerce_part_modify_cart' &&
-          !('ecomm_part_detail_inventory_class' in event.data)
-        ) {
-          event.data.ecomm_part_detail_inventory_class = 'Part'
-        }
-        if (
-          event.data &&
-          event.data.tealium_event === 'ecommerce_part_cart_action'
-        ) {
-          event.data.ecomm_part_detail_inventory_class = 'Part'
-        }
-      }, 'Error processing eCommerce event')
-    })
-
-    window.utag_data = this.utag_data
-  }
-
-  handleWindowLoad() {
-    const { pageType, referenceError } = this.config
-
-    if (pageType === 'search' || pageType === 'product details') {
-      this.utag_data.digital_retailing_active =
-        document.getElementsByClassName('boatyard-btn').length > 0 ? 1 : 0
-      this.utag_data.reserve_a_unit_active =
-        document.querySelectorAll('#reserveUnitBtn').length > 0 ? 1 : 0
-    }
-
-    var pssExists = $(".component[class*='PSS-component_']").length >= 1
-    var oemPartsLookupExists =
-      $(".component[class*='OEMPartsLookup_']").length >= 1
-    if (!pssExists || oemPartsLookupExists) {
-      this.triggerUtagView()
-    }
-
-    if (window.formHandler) {
-      window.formHandler.setTrackingCallback((eventType, data) => {
-        this.triggerUtagLink(eventType, data)
-      })
-      window.formHandler.setupFormTracking()
-      window.formHandler.setupFormSubmissionTracking()
-    }
-
-    window.utag_data = this.utag_data
-  }
-
-  updateUtagData(updates) {
-    this.utag_data = $.extend({}, this.utag_data, updates)
-    window.utag_data = this.utag_data
-  }
-
-  getUtagData() {
-    return this.utag_data
   }
 }
 
+// Auto-initialize when DOM is ready
 ;(function () {
   window.analyticsManager = new AnalyticsManager()
+
+  function initializeWhenReady() {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        window.analyticsManager.initialize()
+      })
+    } else {
+      // DOM already loaded
+      window.analyticsManager.initialize()
+    }
+  }
+
+  // Initialize immediately
+  initializeWhenReady()
+
+  // Expose for manual initialization if needed
+  window.initializeAnalytics = function (options) {
+    return window.analyticsManager.initialize(options)
+  }
 })()
