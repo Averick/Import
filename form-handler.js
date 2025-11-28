@@ -11,6 +11,9 @@ class FormHandler {
   initialize(config, utag_data) {
     if (this.initialized) return
 
+    // Capture the correct 'this' context for use in event handlers
+    const self = this
+
     // Listener for form load event from products page
     $('body').on('show.bs.modal', 'div[id*="AriFormModal"]', function (e) {
       var form = {}
@@ -35,7 +38,7 @@ class FormHandler {
 
       if (form.form_id && form.form_type && form.form_name) {
         // Extract product data from modal form datasource (matches old template)
-        const modalProductData = this.extractFormProductData(modal)
+        const modalProductData = self.extractFormProductData(modal)
 
         // Merge with existing product info and form data (matches old template structure)
         var final = $.extend(
@@ -58,7 +61,7 @@ class FormHandler {
           final.page_make_group = config.pageMakeGroup
         }
         window.analyticsUtils.triggerUtagLink(final, final.tealium_event)
-        window.formHandler.formInteraction(final, formdetail)
+        self.formInteraction(final, formdetail)
       }
     })
 
