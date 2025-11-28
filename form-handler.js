@@ -17,6 +17,53 @@ class FormHandler {
     // Capture the correct 'this' context for use in event handlers
     const self = this
 
+    // EXACT Bootstrap modal handler from old template - handles VDP forms excluded from static processing
+    $('body').on('show.bs.modal', 'div[id*="AriFormModal"]', function (e) {
+      var form = {}
+      form.tealium_event = 'form_load'
+      var modal = e.currentTarget.closest('.ari-form')
+      var formdetail = modal.id
+      form.form_name = $(modal)
+        .find('span[data-form-name]')
+        .attr('data-form-name')
+      form.form_type = $(modal)
+        .find('span[data-lead-type]')
+        .attr('data-lead-type')
+      form.form_id = $(modal).find('span[data-form-id]').attr('data-form-id')
+
+      if (form.form_name === 'Get Promotions') {
+        form.tealium_event = 'did_view_offer_details_click'
+        if (localStorage) {
+          form.did_promotions_name = localStorage.selectedPromotionTitle
+          form.campaign_id = localStorage.selectedPromotionIds
+        }
+      }
+
+      if (form.form_id && form.form_type && form.form_name) {
+        var final = $.extend(
+          {},
+          window.siteUser || {},
+          form,
+          window.productInfo || {}
+        )
+        if (window.utag_data?.page_h1) {
+          final.page_h1 = window.utag_data.page_h1
+        }
+        if (window.productInfo?.product_make) {
+          final.page_make = window.productInfo.product_make.toLowerCase()
+        }
+        if (window.productInfo?.product_make_id) {
+          final.page_make_id = window.productInfo.product_make_id
+        }
+        if (window.pageMakeGroup) {
+          final.page_make_group = window.pageMakeGroup
+        }
+
+        window.analyticsUtils?.triggerUtagLink(final, final.tealium_event)
+        self.formInteraction(final, formdetail)
+      }
+    })
+
     // Add search modal open event listener
     document.addEventListener('searchModalOpen', (e) => {
       var form = {}
@@ -66,9 +113,6 @@ class FormHandler {
     document.addEventListener('FormSubmissionDetails', (e) => {
       this.handleFormSubmissionDetails(e)
     })
-
-    // Setup promotion handlers (moved from analytics-manager)
-    this.setupPromotionHandlers()
 
     this.initialized = true
   }
@@ -360,50 +404,6 @@ class FormHandler {
     if (window.pageMakeGroup) final.page_make_group = window.pageMakeGroup
 
     return final
-  }
-
-  // Promotion handlers (moved from analytics-manager)
-  setupPromotionHandlers() {
-    const limitedTimeOfferBtnClicked = 'limitedTimeOfferBtnClicked_flag'
-
-    // Track promotion link clicks and set localStorage flag
-    $('.promotion-link').click(function () {
-      localStorage.setItem(limitedTimeOfferBtnClicked, true)
-    })
-
-    // Product details page specific handling
-    const pageType = this.utag_data?.page_type || 'other'
-    if (pageType === 'product details') {
-      // Check if user came from promotion link click
-      if (localStorage.getItem(limitedTimeOfferBtnClicked)) {
-        this.handleLimitedTimeOfferButtonClick()
-        localStorage.removeItem(limitedTimeOfferBtnClicked)
-      }
-
-      // Set up inventory promo message click handler
-      const inventoryPromoMessage = document.getElementById(
-        'inventory_promoMessage'
-      )
-      if (inventoryPromoMessage) {
-        inventoryPromoMessage.addEventListener('click', () => {
-          this.handleLimitedTimeOfferButtonClick()
-        })
-      }
-    }
-  }
-
-  // Handle limited time offer button click
-  handleLimitedTimeOfferButtonClick() {
-    try {
-      const eventData = Object.assign({}, this.utag_data)
-      eventData.tealium_event = 'did_limited_time_offer_click'
-      window.analyticsUtils.triggerUtagLink(
-        eventData,
-        'did_limited_time_offer_click'
-      )
-    } catch (error) {
-      console.error('Could not trigger limited time offer click event', error)
-    }
   }
 
   // Extract product data from form's datasource

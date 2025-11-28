@@ -274,6 +274,9 @@ class PageHandlers {
 
     // Product details page specific event tracking
     this.setupProductDetailsTracking()
+
+    // EXACT promotion handling from old template - MUST run after form processing
+    this.setupProductDetailsPromotionLogic()
   }
 
   handleHomePageLogic() {
@@ -647,6 +650,46 @@ class PageHandlers {
       window.analyticsUtils?.triggerUtagLink(final, 'home_featured_click')
     } catch (error) {
       console.error('Could not track home featured click', error)
+    }
+  }
+
+  // EXACT product details promotion logic from old template
+  setupProductDetailsPromotionLogic() {
+    const limitedTimeOfferBtnClicked = 'limitedTimeOfferBtnClicked_flag'
+
+    // Handle promotion link clicks - EXACT copy from old template
+    $('.promotion-link').click(function () {
+      localStorage.setItem(limitedTimeOfferBtnClicked, true)
+    })
+
+    // Product details page specific promotion handling - EXACT copy
+    if (localStorage.getItem(limitedTimeOfferBtnClicked)) {
+      this.handleLimitedTimeOfferButtonClick()
+      localStorage.removeItem(limitedTimeOfferBtnClicked)
+    }
+
+    // Setup inventory promo message click handler - EXACT copy
+    var inventoryPromoMessage = document.getElementById(
+      'inventory_promoMessage'
+    )
+    if (inventoryPromoMessage) {
+      const self = this
+      inventoryPromoMessage.addEventListener('click', function () {
+        self.handleLimitedTimeOfferButtonClick()
+      })
+    }
+  }
+
+  handleLimitedTimeOfferButtonClick() {
+    // EXACT copy from old template
+    if (window.utag_data) {
+      window.utag_data.tealium_event = 'did_limited_time_offer_click'
+      if (window.analyticsUtils?.triggerUtagLink) {
+        window.analyticsUtils.triggerUtagLink(
+          window.utag_data,
+          'did_limited_time_offer_click'
+        )
+      }
     }
   }
 
