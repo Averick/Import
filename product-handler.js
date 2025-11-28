@@ -251,7 +251,7 @@ class ProductHandler {
     const productArrays = this.initializeProductArrays()
     const productItems = this.extractProductItems(config)
 
-    this.populateProductArrays(productArrays, productItems)
+    this.populateProductArrays(config, productArrays, productItems)
     this.addArraysToUtag(utag_data, productArrays)
   }
 
@@ -313,7 +313,7 @@ class ProductHandler {
     )
   }
 
-  populateProductArrays(arrays, items) {
+  populateProductArrays(config, arrays, items) {
     items.forEach((data) => {
       arrays.makes.push(data.itemMake)
       arrays.years.push(data.itemYear)
