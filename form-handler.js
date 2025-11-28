@@ -9,6 +9,7 @@ class FormHandler {
   }
 
   initialize(config, utag_data) {
+    console.log('🚀 FormHandler.initialize() called - registering searchModalOpen listener for srp and show.bs.modal for vdp')
     if (this.initialized) return
 
     // Capture the correct 'this' context for use in event handlers
@@ -779,3 +780,4 @@ class FormHandler {
     return window.formHandler.TriggerUtagFormLoad(modal)
   }
 })()
+
