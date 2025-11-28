@@ -1,98 +1,101 @@
 class FormHandler {
   constructor() {
-    this.initialized = false;
-    this.interactionTracked = new Set();
-    this.formSubmissionTracked = new Set();
-    this.trackingCallback = null;
+    this.initialized = false
+    this.interactionTracked = new Set()
+    this.formSubmissionTracked = new Set()
+    this.trackingCallback = null
   }
 
   initialize(config, utag_data) {
-    if (this.initialized) return;
-    
-    // Listener for form load event from products page
-    $('body').on('show.bs.modal', 'div[id*="AriFormModal"]', function (e) { 
-      var form = {};
-      form.tealium_event = "form_load";
-      var modal = e.currentTarget.closest('.ari-form');
-      var formdetail = modal.id;
-      form.form_name = $(modal).find('span[data-form-name]').attr('data-form-name');
-      form.form_type = $(modal).find('span[data-lead-type]').attr('data-lead-type');
-      form.form_id = $(modal).find('span[data-form-id]').attr('data-form-id');
+    if (this.initialized) return
 
-      if(form.form_name === 'Get Promotions') {
-        form.tealium_event = 'did_view_offer_details_click';
-        if(localStorage) {
-          form.did_promotions_name = localStorage.selectedPromotionTitle;
-          form.campaign_id = localStorage.selectedPromotionIds;
+    // Listener for form load event from products page
+    $('body').on('show.bs.modal', 'div[id*="AriFormModal"]', function (e) {
+      var form = {}
+      form.tealium_event = 'form_load'
+      var modal = e.currentTarget.closest('.ari-form')
+      var formdetail = modal.id
+      form.form_name = $(modal)
+        .find('span[data-form-name]')
+        .attr('data-form-name')
+      form.form_type = $(modal)
+        .find('span[data-lead-type]')
+        .attr('data-lead-type')
+      form.form_id = $(modal).find('span[data-form-id]').attr('data-form-id')
+
+      if (form.form_name === 'Get Promotions') {
+        form.tealium_event = 'did_view_offer_details_click'
+        if (localStorage) {
+          form.did_promotions_name = localStorage.selectedPromotionTitle
+          form.campaign_id = localStorage.selectedPromotionIds
         }
       }
 
       if (form.form_id && form.form_type && form.form_name) {
-        var final = $.extend({}, config.siteUser, form, config.productInfo);
+        var final = $.extend({}, config.siteUser, form, config.productInfo)
         if (utag_data.page_h1) {
-          final.page_h1 = utag_data.page_h1;
+          final.page_h1 = utag_data.page_h1
         }
         if (config.productInfo.product_make) {
-          final.page_make = config.productInfo.product_make.toLowerCase();
+          final.page_make = config.productInfo.product_make.toLowerCase()
         }
         if (config.productInfo.product_make_id) {
-          final.page_make_id = config.productInfo.product_make_id;
+          final.page_make_id = config.productInfo.product_make_id
         }
         if (config.pageMakeGroup) {
-          final.page_make_group = config.pageMakeGroup;
+          final.page_make_group = config.pageMakeGroup
         }
-        if(typeof utag !== config.referenceError) {
-          utag.link(final);
-        } else {
-          console.log('Could not trigger utag.link method.');
-        }
-        window.formHandler.formInteraction(final, formdetail);
+        window.analyticsUtils.triggerUtagLink(final, final.tealium_event)
+        window.formHandler.formInteraction(final, formdetail)
       }
-    });
+    })
 
     // Add search modal open event listener (preserve exact logic from original)
-    document.addEventListener("searchModalOpen", (e) => {
-      var form = {};
-      form.tealium_event = "form_load";
-      var productData = {};
-      var item = e.detail;
-      var formDetail = "";
-      
+    document.addEventListener('searchModalOpen', (e) => {
+      var form = {}
+      form.tealium_event = 'form_load'
+      var productData = {}
+      var item = e.detail
+      var formDetail = ''
+
       if (item) {
         // Use productHandler to parse product data if available
-        if (window.productHandler && typeof window.productHandler.parseProductsData === 'function') {
-          productData = window.productHandler.parseProductsData(item);
+        if (
+          window.productHandler &&
+          typeof window.productHandler.parseProductsData === 'function'
+        ) {
+          productData = window.productHandler.parseProductsData(item)
         }
-        
-        form.form_name = item.formName;
-        form.form_type = item.formType;
-        form.form_id = item.formId;
-        
+
+        form.form_name = item.formName
+        form.form_type = item.formType
+        form.form_id = item.formId
+
         if (config.isExternalBrandedZoneSite && item.productId) {
-          formDetail = `${item.modelName}_${item.productId}`;
+          formDetail = `${item.modelName}_${item.productId}`
         } else {
-          formDetail = `${item.modelName}_${productData.product_id || ''}`;
+          formDetail = `${item.modelName}_${productData.product_id || ''}`
         }
-        
+
         if (form.form_id && form.form_type && form.form_name) {
-          var final = Object.assign({}, config.siteUser, form, productData);
+          var final = Object.assign({}, config.siteUser, form, productData)
           if (utag_data && utag_data.page_h1) {
-            final.page_h1 = utag_data.page_h1;
+            final.page_h1 = utag_data.page_h1
           }
           if (config.pageMakeGroup) {
-            final.page_make_group = config.pageMakeGroup;
+            final.page_make_group = config.pageMakeGroup
           }
-          
+
           // Track the event using the callback
-          this.trackEvent('form_load', final);
-          
+          this.trackEvent('form_load', final)
+
           // Set up form interaction tracking using formInteraction method like original
-          this.formInteraction(final, formDetail);
+          this.formInteraction(final, formDetail)
         }
       }
-    });
+    })
 
-    this.initialized = true;
+    this.initialized = true
   }
 
   setTrackingCallback(callback) {
@@ -110,20 +113,48 @@ class FormHandler {
   trackFormLoads() {
     const forms = document.querySelectorAll('.component[class*=" LeadForm_"]')
     forms.forEach((form) => {
-      // Apply same exclusion logic as original Global Tealium Tracking
-      if (form.closest('div[class*="Staff_"]')) return;
-      if (form.closest('div[class*="OfferedServices_"]')) return;
-      if (form.closest('div[class*="ShowcaseRoot_"]')) return;
-      if (form.closest('div[class*="VDP-Unit-Detail_"]')) return;
-      if (form.closest('div[class*="SearchRoot_"]')) return; // Fixes inventory page issue
-      
+      // Handle previously excluded form types with specific processing
+      if (form.closest('div[class*="Staff_"]')) {
+        this.processSpecialFormLoad(form, 'staff')
+        return
+      }
+      if (form.closest('div[class*="OfferedServices_"]')) {
+        this.processSpecialFormLoad(form, 'offered_services')
+        return
+      }
+      if (form.closest('div[class*="ShowcaseRoot_"]')) {
+        this.processSpecialFormLoad(form, 'showcase')
+        return
+      }
+      if (form.closest('div[class*="VDP-Unit-Detail_"]')) {
+        this.processSpecialFormLoad(form, 'vdp_unit_detail')
+        return
+      }
+      if (form.closest('div[class*="SearchRoot_"]')) {
+        this.processSpecialFormLoad(form, 'search')
+        return
+      }
+
       // Additional exclusion from original
-      const formIdElement = form.querySelector('span[data-form-id]');
-      const formId = formIdElement ? formIdElement.getAttribute('data-form-id') : null;
-      if (formId == 1461 && screen.width >= 768) return; // Desktop "Can't Find" form
-      
-      this.processFormLoad(form);
+      const formIdElement = form.querySelector('span[data-form-id]')
+      const formId = formIdElement
+        ? formIdElement.getAttribute('data-form-id')
+        : null
+      if (formId == 1461 && screen.width >= 768) return // Desktop "Can't Find" form
+
+      this.processFormLoad(form)
     })
+  }
+
+  // Process special form types that were previously excluded
+  processSpecialFormLoad(formElement, context) {
+    const formData = this.extractFormData(formElement)
+    formData.form_context = context
+
+    if (this.isValidForm(formData)) {
+      this.trackEvent('form_load', formData)
+      this.setupFormInteraction(formElement, formData)
+    }
   }
 
   processFormLoad(formElement) {
@@ -165,7 +196,9 @@ class FormHandler {
     }
 
     // Get the form modal ID (formdetail equivalent)
-    const formModal = formElement.closest('.ari-form') || formElement.closest('[id*="AriFormModal"]')
+    const formModal =
+      formElement.closest('.ari-form') ||
+      formElement.closest('[id*="AriFormModal"]')
     const formId = formModal ? formModal.id : null
 
     if (!formId) {
@@ -177,12 +210,15 @@ class FormHandler {
     $(`#${formId}`).on('click', 'input,select,textarea,label', (e) => {
       if (!this.interactionTracked.has(formKey)) {
         this.interactionTracked.add(formKey)
-        
+
         // Create form interaction data (reuse the same data from form_load)
-        const interactionData = { ...formData, tealium_event: 'form_interaction' }
-        
+        const interactionData = {
+          ...formData,
+          tealium_event: 'form_interaction',
+        }
+
         this.trackEvent('form_interaction', interactionData)
-        
+
         // Remove the event listener after first interaction (one-time only)
         $(`#${formId}`).off('click', 'input,select,textarea,label')
       }
@@ -191,40 +227,42 @@ class FormHandler {
 
   // Add formInteraction method to match original API exactly
   formInteraction(final, formDetail, optionalParam = '') {
-    console.log('formInteraction called with:', { final, formDetail });
-    
+    console.log('formInteraction called with:', { final, formDetail })
+
     // Find the actual form element inside the modal (exactly like original)
-    const formElement = document.querySelector('#' + formDetail + ' form' + optionalParam);
-    
+    const formElement = document.querySelector(
+      '#' + formDetail + ' form' + optionalParam
+    )
+
     if (formElement) {
-      console.log('Form with ID found, attaching event listeners.');
-      const formKey = this.getFormKey(final);
-      
+      console.log('Form with ID found, attaching event listeners.')
+      const formKey = this.getFormKey(final)
+
       // Function to handle first interaction (exactly like original)
       const handleFirstInteraction = () => {
         if (!this.interactionTracked.has(formKey)) {
-          console.log('Tracking form interaction for:', formKey);
-          this.interactionTracked.add(formKey);
-          
-          var finalInteractionData = Object.assign({}, final);
-          finalInteractionData.tealium_event = "form_interaction";
-          
+          console.log('Tracking form interaction for:', formKey)
+          this.interactionTracked.add(formKey)
+
+          var finalInteractionData = Object.assign({}, final)
+          finalInteractionData.tealium_event = 'form_interaction'
+
           // Trigger the event using trackingCallback
-          this.trackEvent('form_interaction', finalInteractionData);
-          
+          this.trackEvent('form_interaction', finalInteractionData)
+
           // Remove event listeners after the first interaction (exactly like original)
-          formElement.removeEventListener("input", handleFirstInteraction);
-          formElement.removeEventListener("focus", handleFirstInteraction);
-          formElement.removeEventListener("click", handleFirstInteraction);
+          formElement.removeEventListener('input', handleFirstInteraction)
+          formElement.removeEventListener('focus', handleFirstInteraction)
+          formElement.removeEventListener('click', handleFirstInteraction)
         }
-      };
-      
+      }
+
       // Attach listeners exactly like original (input, focus, click)
-      formElement.addEventListener("input", handleFirstInteraction);
-      formElement.addEventListener("focus", handleFirstInteraction);
-      formElement.addEventListener("click", handleFirstInteraction);
+      formElement.addEventListener('input', handleFirstInteraction)
+      formElement.addEventListener('focus', handleFirstInteraction)
+      formElement.addEventListener('click', handleFirstInteraction)
     } else {
-      console.log(`Form with ID ${formDetail} not found.`);
+      console.log(`Form with ID ${formDetail} not found.`)
     }
   }
 
@@ -466,6 +504,107 @@ class FormHandler {
     }
   }
 
+  // TriggerOfferedServicesFormLoad function (from old template)
+  TriggerOfferedServicesFormLoad(modalName) {
+    this.executeWithErrorHandling(() => {
+      const modal = document.querySelector(`#${modalName} .ari-form`)
+      if (modal) {
+        this.TriggerUtagFormLoad(modal)
+      }
+    }, `Could not trigger offered services form load for ${modalName}`)
+  }
+
+  // TriggerUtagFormLoad function (from old template)
+  TriggerUtagFormLoad(modal) {
+    this.executeWithErrorHandling(() => {
+      var form = {}
+      form.tealium_event = 'form_load'
+      var $modal = $(modal)
+
+      // Check modal context (exactly like old template)
+      if ($modal.closest('div[class*="Staff_"]').length > 0) {
+        form.form_context = 'staff'
+      }
+      if ($modal.closest('div[class*="OfferedServices_"]').length > 0) {
+        form.form_context = 'offered_services'
+      }
+      if ($modal.closest('div[class*="ShowcaseRoot_"]').length > 0) {
+        form.form_context = 'showcase'
+      }
+      if ($modal.closest('div[class*="VDP-Unit-Detail_"]').length > 0) {
+        form.form_context = 'vdp_unit_detail'
+      }
+      if ($modal.closest('div[class*="SearchRoot_"]').length > 0) {
+        form.form_context = 'search'
+      }
+
+      // Extract form data exactly like old template
+      form.form_name = $modal
+        .find('span[data-form-name]')
+        .attr('data-form-name')
+      form.form_type = $modal
+        .find('span[data-lead-type]')
+        .attr('data-lead-type')
+      form.form_id = $modal.find('span[data-form-id]').attr('data-form-id')
+      var formDetail = $modal.find('.ari-form').attr('id')
+
+      if (form.form_id && form.form_type && form.form_name) {
+        var final = Object.assign({}, this.config?.siteUser || {}, form)
+        if (window.utag_data && window.utag_data.page_h1) {
+          final.page_h1 = window.utag_data.page_h1
+        }
+
+        this.trackEvent('form_load', final)
+
+        // Set up form interaction tracking using formInteraction method
+        if (formDetail) {
+          this.formInteraction(final, formDetail)
+        }
+      }
+    }, 'Could not trigger utag.link method')
+  }
+
+  // Enhanced form submission handling
+  setupFormSubmissionTracking() {
+    document.addEventListener('submit', (event) => {
+      const form = event.target
+      const parentComponent = form.closest('.component[class*=" LeadForm_"]')
+
+      if (parentComponent) {
+        this.handleFormSubmission(form, parentComponent)
+      }
+    })
+
+    // Listen for custom form submission events
+    document.addEventListener('FormSubmissionDetails', (e) => {
+      this.executeWithErrorHandling(() => {
+        if (e.detail && e.detail.formData) {
+          const eventData = {
+            tealium_event: 'form_submit',
+            ...e.detail.formData,
+          }
+
+          // Check for specific form submission types
+          if (eventData.form_name === 'Get A Quote') {
+            eventData.tealium_event = 'did_get_a_quote_form_submit'
+          }
+
+          this.trackEvent(eventData.tealium_event, eventData)
+        }
+      }, 'Could not process form submission details event')
+    })
+  }
+
+  // Helper method to execute code with error handling
+  executeWithErrorHandling(fn, errorMessage) {
+    try {
+      return fn()
+    } catch (error) {
+      console.error(errorMessage, error)
+      return null
+    }
+  }
+
   destroy() {
     this.interactionTracked.clear()
     this.formSubmissionTracked.clear()
@@ -474,7 +613,16 @@ class FormHandler {
 }
 
 // Initialize form handler (self-contained like productAiExpert.js)
-(function() {
+;(function () {
   // FormHandler is available in this script's scope
-  window.formHandler = new FormHandler();
-})();
+  window.formHandler = new FormHandler()
+
+  // Expose utility functions globally to match old template API
+  window.TriggerOfferedServicesFormLoad = function (modalName) {
+    return window.formHandler.TriggerOfferedServicesFormLoad(modalName)
+  }
+
+  window.TriggerUtagFormLoad = function (modal) {
+    return window.formHandler.TriggerUtagFormLoad(modal)
+  }
+})()
