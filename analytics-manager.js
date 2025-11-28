@@ -118,34 +118,12 @@ class AnalyticsManager {
 
   trackPageView() {
     try {
-      // Basic page view tracking
-      const pageViewData = Object.assign({}, this.config.siteUser)
-
-      // Add page-specific data
-      if (this.utag_data.page_h1) {
-        pageViewData.page_h1 = this.utag_data.page_h1
-      }
-      if (this.utag_data.page_type) {
-        pageViewData.page_type = this.utag_data.page_type
-      }
-      if (this.config.pageMakeGroup) {
-        pageViewData.page_make_group = this.config.pageMakeGroup
-      }
-
-      // Add product info for product pages
-      if (
-        this.config.productInfo &&
-        Object.keys(this.config.productInfo).length > 0
-      ) {
-        Object.assign(pageViewData, this.config.productInfo)
-      }
-
-      // Trigger page view
+      // Use global utag_data object like old design (already populated by template)
       if (
         window.analyticsUtils &&
         typeof window.analyticsUtils.triggerUtagView === 'function'
       ) {
-        window.analyticsUtils.triggerUtagView(pageViewData)
+        window.analyticsUtils.triggerUtagView(window.utag_data)
       }
     } catch (error) {
       console.error('Could not track page view:', error)
