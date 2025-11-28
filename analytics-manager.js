@@ -234,25 +234,41 @@ class AnalyticsManager {
 }
 
 // Auto-initialize when DOM is ready
+// Auto-initialize when DOM is ready, AND utag is loaded
 ;(function () {
+  // 1. Instantiate the manager
   window.analyticsManager = new AnalyticsManager()
 
-  function initializeWhenReady() {
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => {
-        window.analyticsManager.initialize()
-      })
-    } else {
-      // DOM already loaded
+  // 2. Define the check and retry function
+  function checkAndInitialize() {
+    // Check for the critical dependency: utag object
+    if (
+      typeof window.utag !== 'undefined' &&
+      typeof window.utag.view === 'function'
+    ) {
+      // Dependency ready, proceed with core initialization
+      console.log('Tealium UTAG is ready. Starting Analytics Manager.')
       window.analyticsManager.initialize()
+    } else {
+      // Dependency not ready, retry in 50ms
+      console.log('Tealium UTAG not ready, attempting retry...')
+      setTimeout(checkAndInitialize, 50)
     }
   }
 
-  // Initialize immediately
-  initializeWhenReady()
-
-  // Expose for manual initialization if needed
-  window.initializeAnalytics = function (options) {
-    return window.analyticsManager.initialize(options)
+  // 3. Define the DOM readiness handler
+  function initializeWhenReady() {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        // When DOM is ready, start checking for utag
+        checkAndInitialize()
+      })
+    } else {
+      // DOM already loaded, start checking for utag immediately
+      checkAndInitialize()
+    }
   }
+
+  // 4. Start the initialization process
+  initializeWhenReady()
 })()
