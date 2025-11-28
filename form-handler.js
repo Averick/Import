@@ -9,25 +9,10 @@ class FormHandler {
   }
 
   initialize(config, utag_data) {
-    console.log('🚀 FormHandler.initialize() called - registering searchModalOpen listener for srp and show.bs.modal for vdp')
     if (this.initialized) return
 
     // Capture the correct 'this' context for use in event handlers
     const self = this
-
-    // Test if event listener registration works after Tealium errors
-    setTimeout(() => {
-      console.log('🧪 Testing searchModalOpen event listener registration...')
-      const testEvent = new CustomEvent('searchModalOpen', {
-        detail: {
-          formName: 'TEST_FORM',
-          formType: 'TEST_TYPE', 
-          formId: 'TEST_ID',
-          modelName: 'TEST_MODEL'
-        }
-      })
-      document.dispatchEvent(testEvent)
-    }, 2000) // Wait 2 seconds after initialization
 
     // Listener for form load event from products page
     $('body').on('show.bs.modal', 'div[id*="AriFormModal"]', function (e) {
@@ -94,7 +79,7 @@ class FormHandler {
           window.productHandler &&
           typeof window.productHandler.parseProductsData === 'function'
         ) {
-          productData = window.productHandler.parseProductsData(item)
+          productData = window.productHandler.parseProductsData(config, item)
         }
 
         form.form_name = item.formName
@@ -794,5 +779,6 @@ class FormHandler {
     return window.formHandler.TriggerUtagFormLoad(modal)
   }
 })()
+
 
 
