@@ -1,38 +1,99 @@
-// analytics-utils.js
-// Common utility functions for analytics processing
-
 class AnalyticsUtils {
   constructor() {
-    // Empty constructor
+    this.domCache = {}
   }
 
-  // PRESERVE EXACT FUNCTIONALITY - QueryStringToJSON function from original
+  // DOM utilities
+  getCachedElement(selector, cacheKey = null) {
+    const key = cacheKey || selector
+    if (!this.domCache[key]) {
+      this.domCache[key] = document.querySelector(selector)
+    }
+    return this.domCache[key]
+  }
+
+  getCachedElements(selector, cacheKey = null) {
+    const key = cacheKey || selector
+    if (!this.domCache[key]) {
+      this.domCache[key] = document.querySelectorAll(selector)
+    }
+    return this.domCache[key]
+  }
+
+  // Tealium utilities
+  triggerUtagView(utag_data, customData = {}) {
+    const eventData = Object.assign({}, utag_data, customData)
+    if (typeof utag !== 'undefined') {
+      utag.view(eventData)
+    } else {
+      console.log('Could not trigger utag.view method.')
+    }
+  }
+
+  triggerUtagLink(utag_data, eventType = null, customData = {}) {
+    const eventData = Object.assign({}, utag_data, customData)
+    if (eventType) {
+      eventData.tealium_event = eventType
+    }
+    if (typeof utag !== 'undefined') {
+      utag.link(eventData)
+    } else {
+      console.log(
+        `Could not trigger utag.link method for event: ${
+          eventType || 'unknown'
+        }`
+      )
+    }
+  }
+
+  triggerUtagTrack(eventName, eventData) {
+    if (window.utag && typeof utag.track === 'function') {
+      utag.track(eventName, eventData)
+    }
+  }
+
   QueryStringToJSON() {
-    var pairs = location.search.slice(1).split('&');
-    var result = {};
-    pairs.forEach(function(pair) {
-      pair = pair.split('=');
-      result[pair[0]] = decodeURIComponent(pair[1] || '');
-    });
-    return result;
+    var pairs = location.search.slice(1).split('&')
+    var result = {}
+    pairs.forEach(function (pair) {
+      pair = pair.split('=')
+      result[pair[0]] = decodeURIComponent(pair[1] || '')
+    })
+    return result
   }
 
-  // PRESERVE EXACT FUNCTIONALITY - setDataPointByDataPropertyName function from original
   setDataPointByDataPropertyName(utag_data, attributeName, propertyName) {
-    var result = $('span[' + attributeName + ']').eq(0).attr(attributeName);
-    if(result) {
-      utag_data[propertyName] = result;
+    var result = $('span[' + attributeName + ']')
+      .eq(0)
+      .attr(attributeName)
+    if (result) {
+      utag_data[propertyName] = result
     }
   }
 
-  // PRESERVE EXACT FUNCTIONALITY - getProductsDataFromQueryString function from original
   getProductsDataFromQueryString(config) {
-    var productJson = null;
+    var productJson = null
     try {
-      productJson = this.QueryStringToJSON();
-    } catch (e) {
+      productJson = this.QueryStringToJSON()
+    } catch (e) {}
+    return productJson && productJson.productId
+      ? window.productHandler.parseProductsData(config, productJson)
+      : null
+  }
+
+  /**
+   * Parse JSON from DOM element with error handling
+   * @param {string} elementId - DOM element ID
+   * @returns {object|null} Parsed object or null if parsing fails
+   */
+  parseJsonFromElement(elementId) {
+    try {
+      const element = document.getElementById(elementId)
+      return element ? this.safeJsonParse(element.innerHTML) : null
+    } catch (error) {
+      console.error(`Error parsing JSON from element ${elementId}:`, error)
+      return null
     }
-    return productJson && productJson.productId ? window.productHandler.parseProductsData(config, productJson) : null;
   }
 
   /**
@@ -42,7 +103,7 @@ class AnalyticsUtils {
    */
   safeJsonParse(jsonString) {
     if (!jsonString || typeof jsonString !== 'string') {
-      return null;
+      return null
     }
 
     try {
@@ -53,12 +114,12 @@ class AnalyticsUtils {
         .replace(/&lt;/g, '<')
         .replace(/&gt;/g, '>')
         .replace(/&#x27;/g, "'")
-        .replace(/&#x2F;/g, '/');
+        .replace(/&#x2F;/g, '/')
 
-      return JSON.parse(cleanedString);
+      return JSON.parse(cleanedString)
     } catch (error) {
-      console.error('JSON parse failed:', error, 'Input:', jsonString);
-      return null;
+      console.error('JSON parse failed:', error, 'Input:', jsonString)
+      return null
     }
   }
 
@@ -68,13 +129,46 @@ class AnalyticsUtils {
    * @returns {number} Numeric price value
    */
   parsePrice(priceString) {
-    if (!priceString) return 0;
+    if (!priceString) return 0
 
     // Remove currency symbols, commas, and spaces (preserve exact regex)
-    const cleanPrice = priceString.toString().replace(/[$,\s]/g, '');
-    const price = parseFloat(cleanPrice);
+    const cleanPrice = priceString.toString().replace(/[$,\s]/g, '')
+    const price = parseFloat(cleanPrice)
 
-    return isNaN(price) ? 0 : price;
+    return isNaN(price) ? 0 : price
+  }
+
+  /**
+   * Count characters in text elements
+   * @param {NodeList} elements - Elements to count
+   * @returns {number} Total character count
+   */
+  countTextCharacters(elements) {
+    let totalCount = 0
+    elements.forEach((element) => {
+      totalCount += element.innerText.trim().length
+    })
+    return totalCount
+  }
+
+  /**
+   * Extract text content and lengths from elements
+   * @param {NodeList} elements - Elements to process
+   * @returns {object} Object with texts and lengths arrays
+   */
+  extractTextData(elements) {
+    const texts = []
+    const lengths = []
+
+    Array.from(elements).forEach((element) => {
+      const text = element.innerText.trim()
+      if (text.length > 0) {
+        texts.push(text)
+        lengths.push(text.length.toString())
+      }
+    })
+
+    return { texts, lengths }
   }
 
   /**
@@ -356,7 +450,7 @@ class AnalyticsUtils {
    * @returns {string} Unique identifier
    */
   generateUID() {
-    return Date.now().toString(36) + Math.random().toString(36).substr(2);
+    return Date.now().toString(36) + Math.random().toString(36).substr(2)
   }
 
   /**
@@ -392,7 +486,7 @@ class AnalyticsUtils {
 }
 
 // Initialize utilities (self-contained like productAiExpert.js)
-(function() {
+;(function () {
   // AnalyticsUtils is available in this script's scope
-  window.analyticsUtils = new AnalyticsUtils();
-})();
+  window.analyticsUtils = new AnalyticsUtils()
+})()
