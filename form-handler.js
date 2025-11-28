@@ -17,61 +17,6 @@ class FormHandler {
     // Capture the correct 'this' context for use in event handlers
     const self = this
 
-    // Listener for form load event from products page
-    $('body').on('show.bs.modal', 'div[id*="AriFormModal"]', function (e) {
-      var form = {}
-      form.tealium_event = 'form_load'
-      var modal = e.currentTarget.closest('.ari-form')
-      var formdetail = modal.id
-      form.form_name = $(modal)
-        .find('span[data-form-name]')
-        .attr('data-form-name')
-      form.form_type = $(modal)
-        .find('span[data-lead-type]')
-        .attr('data-lead-type')
-      form.form_id = $(modal).find('span[data-form-id]').attr('data-form-id')
-
-      if (form.form_name === 'Get Promotions') {
-        form.tealium_event = 'did_view_offer_details_click'
-        if (localStorage) {
-          form.did_promotions_name = localStorage.selectedPromotionTitle
-          form.campaign_id = localStorage.selectedPromotionIds
-        }
-      }
-
-      if (form.form_id && form.form_type && form.form_name) {
-        // Extract product data from modal form datasource
-        const modalProductData = self.extractFormProductData(modal)
-
-        // Merge with existing product info and form data
-        var final = $.extend(
-          {},
-          config.siteUser,
-          form,
-          modalProductData,
-          config.productInfo
-        )
-        if (utag_data.page_h1) {
-          final.page_h1 = utag_data.page_h1
-        }
-        if (final.product_make) {
-          final.page_make = final.product_make.toLowerCase()
-        }
-        if (final.product_make_id) {
-          final.page_make_id = final.product_make_id
-        }
-        if (config.pageMakeGroup) {
-          final.page_make_group = config.pageMakeGroup
-        }
-
-        // Direct call to analytics utils - simplified pattern
-        window.analyticsUtils.triggerUtagLink(final, final.tealium_event)
-
-        // Always set up form interaction (answer 1: yes to every form_load)
-        self.formInteraction(final, formdetail)
-      }
-    })
-
     // Add search modal open event listener
     document.addEventListener('searchModalOpen', (e) => {
       var form = {}
