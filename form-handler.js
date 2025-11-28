@@ -15,6 +15,20 @@ class FormHandler {
     // Capture the correct 'this' context for use in event handlers
     const self = this
 
+    // Test if event listener registration works after Tealium errors
+    setTimeout(() => {
+      console.log('🧪 Testing searchModalOpen event listener registration...')
+      const testEvent = new CustomEvent('searchModalOpen', {
+        detail: {
+          formName: 'TEST_FORM',
+          formType: 'TEST_TYPE', 
+          formId: 'TEST_ID',
+          modelName: 'TEST_MODEL'
+        }
+      })
+      document.dispatchEvent(testEvent)
+    }, 2000) // Wait 2 seconds after initialization
+
     // Listener for form load event from products page
     $('body').on('show.bs.modal', 'div[id*="AriFormModal"]', function (e) {
       var form = {}
@@ -780,4 +794,5 @@ class FormHandler {
     return window.formHandler.TriggerUtagFormLoad(modal)
   }
 })()
+
 
