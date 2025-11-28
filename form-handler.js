@@ -34,15 +34,25 @@ class FormHandler {
       }
 
       if (form.form_id && form.form_type && form.form_name) {
-        var final = $.extend({}, config.siteUser, form, config.productInfo)
+        // Extract product data from modal form datasource (matches old template)
+        const modalProductData = this.extractFormProductData(modal)
+
+        // Merge with existing product info and form data (matches old template structure)
+        var final = $.extend(
+          {},
+          config.siteUser,
+          form,
+          modalProductData,
+          config.productInfo
+        )
         if (utag_data.page_h1) {
           final.page_h1 = utag_data.page_h1
         }
-        if (config.productInfo.product_make) {
-          final.page_make = config.productInfo.product_make.toLowerCase()
+        if (final.product_make) {
+          final.page_make = final.product_make.toLowerCase()
         }
-        if (config.productInfo.product_make_id) {
-          final.page_make_id = config.productInfo.product_make_id
+        if (final.product_make_id) {
+          final.page_make_id = final.product_make_id
         }
         if (config.pageMakeGroup) {
           final.page_make_group = config.pageMakeGroup
@@ -129,15 +139,18 @@ class FormHandler {
       `🔍 Page type: ${pageType} - Checking if static form loads should be tracked`
     )
 
-    // The old template processes static LeadForms on all pages, but we should be more selective
-    // Based on the issue description, forms should only trigger form_load when modals are opened
-    // So we should NOT automatically process all LeadForms on page load for search pages
-    if (pageType === 'search') {
+    // Skip static form processing for search and product details pages
+    // Forms on these pages should only trigger when modals are opened
+    if (pageType === 'search' || pageType === 'product details') {
       console.log(
-        `⏭️ Skipping static form loads on search page - forms will only trigger when modals are opened`
+        `⏭️ Skipping static form loads on ${pageType} page - forms will only trigger when modals are opened`
       )
       return
     }
+
+    console.log(
+      `✅ Processing static form loads for ${pageType} page (matches old template behavior)`
+    )
 
     const forms = document.querySelectorAll('.component[class*=" LeadForm_"]')
     console.log(
@@ -214,10 +227,45 @@ class FormHandler {
   processFormLoad(formElement) {
     const formData = this.extractFormData(formElement)
 
-    if (this.isValidForm(formData)) {
-      this.trackEvent('form_load', formData)
-      this.setupFormInteraction(formElement, formData)
+    // Extract product data from form datasource (matches old template logic)
+    const productData = this.extractFormProductData(formElement)
+
+    // Merge product data with form data
+    const enrichedFormData = Object.assign({}, formData, productData)
+
+    if (this.isValidForm(enrichedFormData)) {
+      this.trackEvent('form_load', enrichedFormData)
+      this.setupFormInteraction(formElement, enrichedFormData)
     }
+  }
+
+  // Extract product data from form's datasource (matches old template logic)
+  extractFormProductData(formElement) {
+    const pageType = window.utag_data?.page_type || 'other'
+
+    // Old template logic: different product data source based on page type
+    if (pageType === 'finance') {
+      // Use query string data for finance pages
+      return window.productHandler?.getProductsDataFromQueryString() || {}
+    } else {
+      // For product details and other pages, check form's datasource
+      const itemDataSource = formElement.querySelector('.datasource.hidden')
+      if (itemDataSource && itemDataSource.innerHTML) {
+        try {
+          const productJson = JSON.parse(itemDataSource.innerHTML)
+          if (productJson && productJson.productId && window.productHandler) {
+            return window.productHandler.parseProductsData(
+              window.TealiumConfig || {},
+              productJson
+            )
+          }
+        } catch (error) {
+          console.warn('Failed to parse form datasource:', error)
+        }
+      }
+    }
+
+    return {}
   }
 
   extractFormData(formElement) {
