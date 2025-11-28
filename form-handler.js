@@ -5,11 +5,14 @@ class FormHandler {
     this.formSubmissionTracked = new Set()
     this.formLoadTracked = new Set()
     this.formTrackingSetup = false
-    this.trackingCallback = null
   }
 
   initialize(config, utag_data) {
     if (this.initialized) return
+
+    // Store config for use in event handlers
+    this.config = config
+    this.utag_data = utag_data
 
     // Capture the correct 'this' context for use in event handlers
     const self = this
@@ -37,10 +40,10 @@ class FormHandler {
       }
 
       if (form.form_id && form.form_type && form.form_name) {
-        // Extract product data from modal form datasource (matches old template)
+        // Extract product data from modal form datasource
         const modalProductData = self.extractFormProductData(modal)
 
-        // Merge with existing product info and form data (matches old template structure)
+        // Merge with existing product info and form data
         var final = $.extend(
           {},
           config.siteUser,
@@ -60,7 +63,11 @@ class FormHandler {
         if (config.pageMakeGroup) {
           final.page_make_group = config.pageMakeGroup
         }
+
+        // Direct call to analytics utils - simplified pattern
         window.analyticsUtils.triggerUtagLink(final, final.tealium_event)
+
+        // Always set up form interaction (answer 1: yes to every form_load)
         self.formInteraction(final, formdetail)
       }
     })
@@ -101,20 +108,24 @@ class FormHandler {
             final.page_make_group = config.pageMakeGroup
           }
 
-          // Track the event using the callback
-          this.trackEvent('form_load', final)
+          // Direct call to analytics utils
+          window.analyticsUtils.triggerUtagLink(final, 'form_load')
 
-          // Set up form interaction tracking using formInteraction method like original
+          // Always set up form interaction
           this.formInteraction(final, formDetail)
         }
       }
     })
 
-    this.initialized = true
-  }
+    // FormSubmissionDetails event listener (moved from analytics-manager)
+    document.addEventListener('FormSubmissionDetails', (e) => {
+      this.handleFormSubmissionDetails(e)
+    })
 
-  setTrackingCallback(callback) {
-    this.trackingCallback = callback
+    // Setup promotion handlers (moved from analytics-manager)
+    this.setupPromotionHandlers()
+
+    this.initialized = true
   }
 
   setupFormTracking() {
@@ -126,33 +137,21 @@ class FormHandler {
 
     this.formTrackingSetup = true
 
-    // Only track static form loads on appropriate page types
-    // (Modal forms are tracked separately via show.bs.modal event)
+    // Track static form loads (removed page type restrictions - answer 1)
     this.trackStaticFormLoads()
 
     // Set up observers for dynamically loaded forms
     this.observeForNewForms()
+
+    // Setup form submission tracking
+    this.setupFormSubmissionTracking()
   }
 
   trackStaticFormLoads() {
-    // Check page type from utag_data to determine if we should process static forms
     const pageType = window.utag_data?.page_type || 'other'
 
     console.log(
-      `🔍 Page type: ${pageType} - Checking if static form loads should be tracked`
-    )
-
-    // Skip static form processing for search and product details pages
-    // Forms on these pages should only trigger when modals are opened
-    if (pageType === 'search' || pageType === 'product details') {
-      console.log(
-        `⏭️ Skipping static form loads on ${pageType} page - forms will only trigger when modals are opened`
-      )
-      return
-    }
-
-    console.log(
-      `✅ Processing static form loads for ${pageType} page (matches old template behavior)`
+      `🔍 Page type: ${pageType} - Processing static form loads (all pages now include interaction tracking)`
     )
 
     const forms = document.querySelectorAll('.component[class*=" LeadForm_"]')
@@ -170,7 +169,7 @@ class FormHandler {
         form
           .querySelector('span[data-form-name]')
           ?.getAttribute('data-form-name') || 'unknown'
-      const formKey = `${formId}_${formName}_${form.outerHTML.length}` // Include length to ensure uniqueness
+      const formKey = `${formId}_${formName}_${form.outerHTML.length}`
 
       // Skip if already tracked
       if (this.formLoadTracked.has(formKey)) {
@@ -180,40 +179,40 @@ class FormHandler {
         return
       }
 
-      // Follow EXACT exclusion logic from old template (return true = skip)
+      // Follow EXACT exclusion logic from old template
       if (form.closest('div[class*="Staff_"]')) {
         console.log(`⏭️ Skipping Staff form: ${formName} (ID: ${formId})`)
-        return // Skip staff forms (matches old template: return true)
+        return
       }
       if (form.closest('div[class*="OfferedServices_"]')) {
         console.log(
           `⏭️ Skipping OfferedServices form: ${formName} (ID: ${formId})`
         )
-        return // Skip offered services forms (matches old template: return true)
+        return
       }
       if (form.closest('div[class*="ShowcaseRoot_"]')) {
         console.log(
           `⏭️ Skipping ShowcaseRoot form: ${formName} (ID: ${formId})`
         )
-        return // Skip showcase forms (matches old template: return true)
+        return
       }
       if (form.closest('div[class*="VDP-Unit-Detail_"]')) {
         console.log(
           `⏭️ Skipping VDP-Unit-Detail form: ${formName} (ID: ${formId})`
         )
-        return // Skip VDP unit detail forms (matches old template: return true)
+        return
       }
       if (form.closest('div[class*="SearchRoot_"]')) {
         console.log(`⏭️ Skipping SearchRoot form: ${formName} (ID: ${formId})`)
-        return // Skip search forms (matches old template: return true)
+        return
       }
 
-      // Skip "Can't Find What You're Looking For?" form on desktop (exact logic from old template)
+      // Skip "Can't Find What You're Looking For?" form on desktop
       if (formId == 1461 && screen.width >= 768) {
         console.log(
           `⏭️ Skipping Can't Find form (desktop): ${formName} (ID: ${formId})`
         )
-        return // Skip desktop "Can't Find" form (matches old template: return true)
+        return
       }
 
       // Mark as tracked BEFORE processing to prevent duplicates
@@ -229,46 +228,165 @@ class FormHandler {
 
   processFormLoad(formElement) {
     const formData = this.extractFormData(formElement)
-
-    // Extract product data from form datasource (matches old template logic)
     const productData = this.extractFormProductData(formElement)
-
-    // Merge product data with form data
     const enrichedFormData = Object.assign({}, formData, productData)
 
     if (this.isValidForm(enrichedFormData)) {
-      this.trackEvent('form_load', enrichedFormData)
+      // Direct call to analytics utils
+      window.analyticsUtils.triggerUtagLink(enrichedFormData, 'form_load')
 
-      // Get formDetail (modal ID) exactly like old template
-      const formModal = formElement.closest('.ari-form')
-      const formDetail = formModal ? formModal.id : null
+      // Try to find actual DOM formDetail first
+      const ariForm = formElement.querySelector('.ari-form')
+      let formDetail = ariForm ? ariForm.id : null
 
-      if (formDetail) {
-        this.formInteraction(enrichedFormData, formDetail)
+      // If no .ari-form found, construct formDetail from form data
+      if (!formDetail) {
+        formDetail = `form_${
+          enrichedFormData.form_id
+        }_${enrichedFormData.form_name.replace(/\s+/g, '_')}`
+      }
+
+      // Always set up form interaction (answer 1: yes)
+      this.formInteraction(enrichedFormData, formDetail)
+    }
+  }
+
+  // FormSubmissionDetails handler (moved from analytics-manager)
+  handleFormSubmissionDetails(e) {
+    try {
+      var form = {}
+      form.tealium_event = 'form_submit'
+
+      if (e.detail && e.detail.formData) {
+        form = Object.assign({}, form, e.detail.formData)
+      }
+
+      // Handle specific form submission types
+      if (form.form_name === 'Get A Quote') {
+        form.tealium_event = 'did_get_a_quote_form_submit'
+      }
+
+      // Extract productDetails based on pageType
+      const pageType = this.utag_data?.page_type || 'other'
+      let productDetails = {}
+
+      if (pageType === 'search') {
+        if (e.detail && e.detail.formData && window.productHandler) {
+          productDetails =
+            window.productHandler.parseProductsData(
+              this.config,
+              e.detail.formData
+            ) || {}
+        }
+      } else if (pageType === 'finance') {
+        if (
+          window.productHandler &&
+          window.productHandler.getProductsDataFromQueryString
+        ) {
+          productDetails =
+            window.productHandler.getProductsDataFromQueryString() || {}
+        }
       } else {
-        console.warn('Could not find form modal ID for interaction tracking')
-        this.setupFormInteraction(formElement, enrichedFormData)
+        productDetails = this.config.productInfo || {}
+      }
+
+      // Get showcase and promotion data
+      const showcaseData =
+        window.productHandler?.getShowCaseData?.(this.utag_data) || {}
+      const promotionData =
+        window.productHandler?.getPromotionData?.(form, e.detail?.formData) ||
+        {}
+
+      // Merge all data
+      var final = Object.assign(
+        {},
+        this.config.siteUser,
+        form,
+        productDetails,
+        showcaseData,
+        promotionData
+      )
+
+      if (this.utag_data.page_h1) {
+        final.page_h1 = this.utag_data.page_h1
+      }
+
+      // Set page make info from product details
+      if (productDetails.product_make) {
+        final.page_make = productDetails.product_make.toLowerCase()
+      }
+      if (productDetails.product_make_id) {
+        final.page_make_id = productDetails.product_make_id
+      }
+      if (this.config.pageMakeGroup) {
+        final.page_make_group = this.config.pageMakeGroup
+      }
+
+      // Direct call to analytics utils
+      window.analyticsUtils.triggerUtagLink(final, form.tealium_event)
+    } catch (error) {
+      console.error('Could not process form submission details event', error)
+    }
+  }
+
+  // Promotion handlers (moved from analytics-manager)
+  setupPromotionHandlers() {
+    const limitedTimeOfferBtnClicked = 'limitedTimeOfferBtnClicked_flag'
+
+    // Track promotion link clicks and set localStorage flag
+    $('.promotion-link').click(function () {
+      localStorage.setItem(limitedTimeOfferBtnClicked, true)
+    })
+
+    // Product details page specific handling
+    const pageType = this.utag_data?.page_type || 'other'
+    if (pageType === 'product details') {
+      // Check if user came from promotion link click
+      if (localStorage.getItem(limitedTimeOfferBtnClicked)) {
+        this.handleLimitedTimeOfferButtonClick()
+        localStorage.removeItem(limitedTimeOfferBtnClicked)
+      }
+
+      // Set up inventory promo message click handler
+      const inventoryPromoMessage = document.getElementById(
+        'inventory_promoMessage'
+      )
+      if (inventoryPromoMessage) {
+        inventoryPromoMessage.addEventListener('click', () => {
+          this.handleLimitedTimeOfferButtonClick()
+        })
       }
     }
   }
 
-  // Extract product data from form's datasource (matches old template logic)
+  // Handle limited time offer button click
+  handleLimitedTimeOfferButtonClick() {
+    try {
+      const eventData = Object.assign({}, this.utag_data)
+      eventData.tealium_event = 'did_limited_time_offer_click'
+      window.analyticsUtils.triggerUtagLink(
+        eventData,
+        'did_limited_time_offer_click'
+      )
+    } catch (error) {
+      console.error('Could not trigger limited time offer click event', error)
+    }
+  }
+
+  // Extract product data from form's datasource
   extractFormProductData(formElement) {
     const pageType = window.utag_data?.page_type || 'other'
 
-    // Old template logic: different product data source based on page type
     if (pageType === 'finance') {
-      // Use query string data for finance pages
       return window.productHandler?.getProductsDataFromQueryString() || {}
     } else {
-      // For product details and other pages, check form's datasource
       const itemDataSource = formElement.querySelector('.datasource.hidden')
       if (itemDataSource && itemDataSource.innerHTML) {
         try {
           const productJson = JSON.parse(itemDataSource.innerHTML)
           if (productJson && productJson.productId && window.productHandler) {
             return window.productHandler.parseProductsData(
-              window.TealiumConfig || {},
+              this.config || {},
               productJson
             )
           }
@@ -277,7 +395,6 @@ class FormHandler {
         }
       }
     }
-
     return {}
   }
 
@@ -303,97 +420,11 @@ class FormHandler {
     return formData.form_name && (formData.form_type || formData.form_id)
   }
 
-  setupFormInteraction(formElement, formData) {
-    const formKey = this.getFormKey(formData)
-
-    if (this.interactionTracked.has(formKey)) {
-      return
-    }
-
-    // Try multiple strategies to find the form modal container
-    let formModal =
-      formElement.closest('.ari-form') ||
-      formElement.closest('[id*="AriFormModal"]') ||
-      formElement.closest('[class*="Modal"]') ||
-      formElement.closest('[class*="modal"]') ||
-      formElement.closest('form')
-
-    // If still no modal found, try looking for any parent with an ID
-    if (!formModal) {
-      let parent = formElement.parentElement
-      while (parent && parent !== document.body) {
-        if (parent.id) {
-          formModal = parent
-          break
-        }
-        parent = parent.parentElement
-      }
-    }
-
-    const formId = formModal ? formModal.id : null
-
-    if (!formId) {
-      console.warn(
-        'Could not find form modal ID for interaction tracking, falling back to direct form interaction'
-      )
-      // Fallback: attach directly to the form element itself
-      this.setupDirectFormInteraction(formElement, formData, formKey)
-      return
-    }
-
-    // Use jQuery event delegation exactly like original
-    $(`#${formId}`).on('click', 'input,select,textarea,label', (e) => {
-      if (!this.interactionTracked.has(formKey)) {
-        this.interactionTracked.add(formKey)
-
-        // Create form interaction data (reuse the same data from form_load)
-        const interactionData = {
-          ...formData,
-          tealium_event: 'form_interaction',
-        }
-
-        this.trackEvent('form_interaction', interactionData)
-
-        // Remove the event listener after first interaction (one-time only)
-        $(`#${formId}`).off('click', 'input,select,textarea,label')
-      }
-    })
-  }
-
-  // Fallback method for forms without identifiable modal containers
-  setupDirectFormInteraction(formElement, formData, formKey) {
-    const handleFirstInteraction = (e) => {
-      if (!this.interactionTracked.has(formKey)) {
-        this.interactionTracked.add(formKey)
-
-        const interactionData = {
-          ...formData,
-          tealium_event: 'form_interaction',
-        }
-
-        this.trackEvent('form_interaction', interactionData)
-
-        // Remove event listeners after first interaction
-        formElement.removeEventListener('input', handleFirstInteraction)
-        formElement.removeEventListener('focus', handleFirstInteraction)
-        formElement.removeEventListener('click', handleFirstInteraction)
-      }
-    }
-
-    // Attach listeners directly to form inputs
-    const inputs = formElement.querySelectorAll('input,select,textarea,label')
-    inputs.forEach((input) => {
-      input.addEventListener('input', handleFirstInteraction)
-      input.addEventListener('focus', handleFirstInteraction)
-      input.addEventListener('click', handleFirstInteraction)
-    })
-  }
-
-  // Add formInteraction method to match original API exactly
+  // Form interaction method (matches original API exactly)
   formInteraction(final, formDetail, optionalParam = '') {
     console.log('formInteraction called with:', { final, formDetail })
 
-    // Find the actual form element inside the modal (exactly like original)
+    // Find the actual form element inside the modal
     const formElement = document.querySelector(
       '#' + formDetail + ' form' + optionalParam
     )
@@ -402,7 +433,7 @@ class FormHandler {
       console.log(`Form with ID found, attaching event listeners.`)
       const formKey = this.getFormKey(final)
 
-      // Function to handle first interaction (exactly like original)
+      // Function to handle first interaction
       const handleFirstInteraction = () => {
         if (!this.interactionTracked.has(formKey)) {
           console.log('Tracking form interaction for:', formKey)
@@ -411,23 +442,20 @@ class FormHandler {
           var finalInteractionData = Object.assign({}, final)
           finalInteractionData.tealium_event = 'form_interaction'
 
-          // Trigger the event exactly like original
-          if (typeof utag !== 'undefined') {
-            utag.link(finalInteractionData)
-          } else {
-            console.log(
-              'Could not trigger utag.link method for form interaction.'
-            )
-          }
+          // Direct call to analytics utils
+          window.analyticsUtils.triggerUtagLink(
+            finalInteractionData,
+            'form_interaction'
+          )
 
-          // Remove event listeners after the first interaction (exactly like original)
+          // Remove event listeners after first interaction
           formElement.removeEventListener('input', handleFirstInteraction)
           formElement.removeEventListener('focus', handleFirstInteraction)
           formElement.removeEventListener('click', handleFirstInteraction)
         }
       }
 
-      // Attach listeners exactly like original (input, focus, click)
+      // Attach listeners exactly like original
       formElement.addEventListener('input', handleFirstInteraction)
       formElement.addEventListener('focus', handleFirstInteraction)
       formElement.addEventListener('click', handleFirstInteraction)
@@ -436,7 +464,7 @@ class FormHandler {
     }
   }
 
-  setupFormSubmissionListener() {
+  setupFormSubmissionTracking() {
     document.addEventListener('submit', (event) => {
       const form = event.target
       const parentComponent = form.closest('.component[class*=" LeadForm_"]')
@@ -457,18 +485,17 @@ class FormHandler {
 
     this.formSubmissionTracked.add(formKey)
 
-    // Extract form field data
     const fieldData = this.extractFormFieldData(form)
     const submissionData = { ...formData, ...fieldData }
 
-    this.trackEvent('form_submission', submissionData)
+    // Direct call to analytics utils
+    window.analyticsUtils.triggerUtagLink(submissionData, 'form_submission')
   }
 
   extractFormFieldData(form) {
     const fieldData = {}
     const formData = new FormData(form)
 
-    // Map common field names
     const fieldMapping = {
       firstName: 'customer_first_name',
       lastName: 'customer_last_name',
@@ -491,123 +518,7 @@ class FormHandler {
     return fieldData
   }
 
-  setupFormInteractionTracking() {
-    // Enhanced interaction tracking for specific form types
-    this.setupServiceFormTracking()
-    this.setupFinancingFormTracking()
-    this.setupTradeInFormTracking()
-  }
-
-  setupServiceFormTracking() {
-    const serviceForms = document.querySelectorAll(
-      '.component[class*="ServiceForm"]'
-    )
-
-    serviceForms.forEach((form) => {
-      const serviceTypeSelect = form.querySelector(
-        'select[name*="serviceType"]'
-      )
-
-      if (serviceTypeSelect) {
-        serviceTypeSelect.addEventListener('change', (event) => {
-          this.trackEvent('service_type_selected', {
-            service_type: event.target.value,
-            form_type: 'service',
-          })
-        })
-      }
-    })
-  }
-
-  setupFinancingFormTracking() {
-    const financingForms = document.querySelectorAll(
-      '.component[class*="FinancingForm"]'
-    )
-
-    financingForms.forEach((form) => {
-      const creditScoreSelect = form.querySelector(
-        'select[name*="creditScore"]'
-      )
-
-      if (creditScoreSelect) {
-        creditScoreSelect.addEventListener('change', (event) => {
-          this.trackEvent('credit_score_selected', {
-            credit_score: event.target.value,
-            form_type: 'financing',
-          })
-        })
-      }
-    })
-  }
-
-  setupTradeInFormTracking() {
-    const tradeInForms = document.querySelectorAll(
-      '.component[class*="TradeInForm"]'
-    )
-
-    tradeInForms.forEach((form) => {
-      const vehicleTypeSelect = form.querySelector(
-        'select[name*="vehicleType"]'
-      )
-
-      if (vehicleTypeSelect) {
-        vehicleTypeSelect.addEventListener('change', (event) => {
-          this.trackEvent('trade_vehicle_type_selected', {
-            vehicle_type: event.target.value,
-            form_type: 'trade_in',
-          })
-        })
-      }
-    })
-  }
-
-  setupDIDPromotionFormHandler() {
-    // Handle DID promotion form events
-    const didForms = document.querySelectorAll('.did-promotion-form')
-
-    didForms.forEach((form) => {
-      form.addEventListener('submit', (event) => {
-        this.handleDIDFormSubmission(event, form)
-      })
-    })
-
-    // Handle DID form show/hide events
-    document.addEventListener('click', (event) => {
-      if (event.target.matches('.did-promotion-toggle')) {
-        this.handleDIDFormToggle(event)
-      }
-    })
-  }
-
-  handleDIDFormSubmission(event, form) {
-    const promotionData = this.extractDIDPromotionData(form)
-    this.trackEvent('did_promotion_form_submission', promotionData)
-  }
-
-  handleDIDFormToggle(event) {
-    const isExpanding = event.target.getAttribute('aria-expanded') === 'false'
-    const promotionId = event.target.getAttribute('data-promotion-id')
-
-    this.trackEvent(
-      isExpanding ? 'did_promotion_expanded' : 'did_promotion_collapsed',
-      {
-        promotion_id: promotionId,
-        action: isExpanding ? 'expand' : 'collapse',
-      }
-    )
-  }
-
-  extractDIDPromotionData(form) {
-    return {
-      promotion_id: form.getAttribute('data-promotion-id') || '',
-      promotion_name: form.getAttribute('data-promotion-name') || '',
-      promotion_type: 'did',
-      dealer_id: form.getAttribute('data-dealer-id') || '',
-    }
-  }
-
   observeForNewForms() {
-    // Set up MutationObserver to detect dynamically added forms
     const observer = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         mutation.addedNodes.forEach((node) => {
@@ -617,7 +528,6 @@ class FormHandler {
             )
             forms.forEach((form) => this.processFormLoad(form))
 
-            // Check if the added node itself is a form
             if (
               node.matches &&
               node.matches('.component[class*=" LeadForm_"]')
@@ -640,75 +550,28 @@ class FormHandler {
     return `${formData.form_name}_${formData.form_type}_${formData.form_id}`
   }
 
-  trackEvent(eventType, additionalData = {}) {
-    if (this.trackingCallback) {
-      this.trackingCallback(eventType, additionalData)
-    } else {
-      console.warn('No tracking callback set for form event:', eventType)
-    }
-  }
-
-  // Public methods for external form tracking
-  trackCustomFormEvent(formElement, eventType, additionalData = {}) {
-    const formData = this.extractFormData(formElement)
-    const eventData = { ...formData, ...additionalData }
-    this.trackEvent(eventType, eventData)
-  }
-
-  resetFormTracking(formElement) {
-    const formData = this.extractFormData(formElement)
-    const formKey = this.getFormKey(formData)
-
-    this.interactionTracked.delete(formKey)
-    this.formSubmissionTracked.delete(formKey)
-  }
-
-  // Get form analytics data
-  getFormAnalytics() {
-    return {
-      formsWithInteraction: this.interactionTracked.size,
-      formsSubmitted: this.formSubmissionTracked.size,
-      totalFormsTracked: document.querySelectorAll(
-        '.component[class*=" LeadForm_"]'
-      ).length,
-    }
-  }
-
   // TriggerOfferedServicesFormLoad function (from old template)
   TriggerOfferedServicesFormLoad(modalName) {
-    this.executeWithErrorHandling(() => {
+    try {
       const modal = document.querySelector(`#${modalName} .ari-form`)
       if (modal) {
         this.TriggerUtagFormLoad(modal)
       }
-    }, `Could not trigger offered services form load for ${modalName}`)
+    } catch (error) {
+      console.error(
+        `Could not trigger offered services form load for ${modalName}`,
+        error
+      )
+    }
   }
 
   // TriggerUtagFormLoad function (from old template)
   TriggerUtagFormLoad(modal) {
-    this.executeWithErrorHandling(() => {
+    try {
       var form = {}
       form.tealium_event = 'form_load'
       var $modal = $(modal)
 
-      // Check modal context (exactly like old template)
-      if ($modal.closest('div[class*="Staff_"]').length > 0) {
-        form.form_context = 'staff'
-      }
-      if ($modal.closest('div[class*="OfferedServices_"]').length > 0) {
-        form.form_context = 'offered_services'
-      }
-      if ($modal.closest('div[class*="ShowcaseRoot_"]').length > 0) {
-        form.form_context = 'showcase'
-      }
-      if ($modal.closest('div[class*="VDP-Unit-Detail_"]').length > 0) {
-        form.form_context = 'vdp_unit_detail'
-      }
-      if ($modal.closest('div[class*="SearchRoot_"]').length > 0) {
-        form.form_context = 'search'
-      }
-
-      // Extract form data exactly like old template
       form.form_name = $modal
         .find('span[data-form-name]')
         .attr('data-form-name')
@@ -724,54 +587,16 @@ class FormHandler {
           final.page_h1 = window.utag_data.page_h1
         }
 
-        this.trackEvent('form_load', final)
+        // Direct call to analytics utils
+        window.analyticsUtils.triggerUtagLink(final, 'form_load')
 
-        // Set up form interaction tracking using formInteraction method
+        // Always set up form interaction
         if (formDetail) {
           this.formInteraction(final, formDetail)
         }
       }
-    }, 'Could not trigger utag.link method')
-  }
-
-  // Enhanced form submission handling
-  setupFormSubmissionTracking() {
-    document.addEventListener('submit', (event) => {
-      const form = event.target
-      const parentComponent = form.closest('.component[class*=" LeadForm_"]')
-
-      if (parentComponent) {
-        this.handleFormSubmission(form, parentComponent)
-      }
-    })
-
-    // Listen for custom form submission events
-    document.addEventListener('FormSubmissionDetails', (e) => {
-      this.executeWithErrorHandling(() => {
-        if (e.detail && e.detail.formData) {
-          const eventData = {
-            tealium_event: 'form_submit',
-            ...e.detail.formData,
-          }
-
-          // Check for specific form submission types
-          if (eventData.form_name === 'Get A Quote') {
-            eventData.tealium_event = 'did_get_a_quote_form_submit'
-          }
-
-          this.trackEvent(eventData.tealium_event, eventData)
-        }
-      }, 'Could not process form submission details event')
-    })
-  }
-
-  // Helper method to execute code with error handling
-  executeWithErrorHandling(fn, errorMessage) {
-    try {
-      return fn()
     } catch (error) {
-      console.error(errorMessage, error)
-      return null
+      console.error('Could not trigger utag.link method', error)
     }
   }
 
@@ -780,13 +605,12 @@ class FormHandler {
     this.formSubmissionTracked.clear()
     this.formLoadTracked.clear()
     this.formTrackingSetup = false
-    this.isInitialized = false
+    this.initialized = false
   }
 }
 
-// Initialize form handler (self-contained like productAiExpert.js)
+// Initialize form handler
 ;(function () {
-  // FormHandler is available in this script's scope
   window.formHandler = new FormHandler()
 
   // Expose utility functions globally to match old template API
