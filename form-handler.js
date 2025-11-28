@@ -251,82 +251,170 @@ class FormHandler {
     }
   }
 
-  // FormSubmissionDetails handler (moved from analytics-manager)
+  // Modular FormSubmissionDetails handler with old template compatibility
   handleFormSubmissionDetails(e) {
     try {
-      var form = {}
-      form.tealium_event = 'form_submit'
+      const data = e.detail
+      const form = { tealium_event: 'form_submit' }
 
-      if (e.detail && e.detail.formData) {
-        form = Object.assign({}, form, e.detail.formData)
-      }
+      // Use modular approach for field mapping
+      this.mapPersonalFields(form, data)
+      this.mapContactFields(form, data)
+      this.mapAddressFields(form, data)
+      this.mapTradeInFields(form, data)
+      this.mapSpecialFields(form, data)
+      this.mapFormMetadata(form, data)
 
-      // Handle specific form submission types
-      if (form.form_name === 'Get A Quote') {
-        form.tealium_event = 'did_get_a_quote_form_submit'
-      }
+      // Get product data using modular approach
+      const productDetails = this.getProductDetailsForSubmission(data)
 
-      // Extract productDetails based on pageType
-      const pageType = this.utag_data?.page_type || 'other'
-      let productDetails = {}
+      // Build final tracking object
+      const final = this.buildFinalTrackingObject(form, productDetails, data)
 
-      if (pageType === 'search') {
-        if (e.detail && e.detail.formData && window.productHandler) {
-          productDetails =
-            window.productHandler.parseProductsData(
-              this.config,
-              e.detail.formData
-            ) || {}
-        }
-      } else if (pageType === 'finance') {
-        if (
-          window.productHandler &&
-          window.productHandler.getProductsDataFromQueryString
-        ) {
-          productDetails =
-            window.productHandler.getProductsDataFromQueryString() || {}
-        }
-      } else {
-        productDetails = this.config.productInfo || {}
-      }
-
-      // Get showcase and promotion data
-      const showcaseData =
-        window.productHandler?.getShowCaseData?.(this.utag_data) || {}
-      const promotionData =
-        window.productHandler?.getPromotionData?.(form, e.detail?.formData) ||
-        {}
-
-      // Merge all data
-      var final = Object.assign(
-        {},
-        this.config.siteUser,
-        form,
-        productDetails,
-        showcaseData,
-        promotionData
-      )
-
-      if (this.utag_data.page_h1) {
-        final.page_h1 = this.utag_data.page_h1
-      }
-
-      // Set page make info from product details
-      if (productDetails.product_make) {
-        final.page_make = productDetails.product_make.toLowerCase()
-      }
-      if (productDetails.product_make_id) {
-        final.page_make_id = productDetails.product_make_id
-      }
-      if (this.config.pageMakeGroup) {
-        final.page_make_group = this.config.pageMakeGroup
-      }
-
-      // Direct call to analytics utils
-      window.analyticsUtils.triggerUtagLink(final, form.tealium_event)
+      // Trigger analytics using modular utilities
+      window.analyticsUtils?.triggerUtagLink(final, final.tealium_event)
     } catch (error) {
-      console.error('Could not process form submission details event', error)
+      console.error('Form submission tracking error:', error)
     }
+  }
+
+  // Modular field mapping methods
+  mapPersonalFields(form, data) {
+    // Name handling with old template compatibility
+    if (data.firstname || data.firstName) {
+      form.form_submission_first_name = data.firstname || data.firstName
+    } else if (data.lastname || data.lastName) {
+      form.form_submission_last_name = data.lastname || data.lastName
+    } else if (data.name && data.name.includes(' ')) {
+      const nameParts = data.name.split(' ')
+      form.form_submission_first_name = nameParts[0]
+      form.form_submission_last_name = nameParts.slice(1).join(' ')
+    } else if (data.fullname && data.fullname.includes(' ')) {
+      const nameParts = data.fullname.split(' ')
+      form.form_submission_first_name = nameParts[0]
+      form.form_submission_last_name = nameParts.slice(1).join(' ')
+    } else if (data.name) {
+      form.form_submission_first_name = data.name
+    } else if (data.fullname) {
+      form.form_submission_first_name = data.fullname
+    }
+  }
+
+  mapContactFields(form, data) {
+    if (data.email) {
+      form.form_submission_email = data.email
+    } else if (data.contactEmail) {
+      form.form_submission_email = data.contactEmail
+    }
+
+    if (data.phone) {
+      form.form_submission_phone_number = data.phone
+    } else if (data.phoneNumber) {
+      form.form_submission_phone_number = data.phoneNumber
+    }
+  }
+
+  mapAddressFields(form, data) {
+    if (data.address1 || data.street1) {
+      form.form_submission_address = data.address1 || data.street1
+    }
+    if (data.city) form.form_submission_city = data.city
+    if (data.postalcode || data.zip || data.zipcode) {
+      form.form_submission_postal_code =
+        data.postalcode || data.zip || data.zipcode
+    }
+    if (data.region) form.form_submission_state = data.region
+  }
+
+  mapTradeInFields(form, data) {
+    if (data.tradeMake) form.form_submission_trade_in_make = data.tradeMake
+    if (data.tradeModel) form.form_submission_trade_in_model = data.tradeModel
+    if (data.tradeYear) form.form_submission_trade_in_year = data.tradeYear
+    if (data.accessories)
+      form.form_submission_trade_in_accessories = data.accessories
+    if (data.usage) form.form_submission_trade_in_miles = data.usage
+  }
+
+  mapSpecialFields(form, data) {
+    if (data.leadType === 'scheduletestdrive' && data.item) {
+      form.form_submission_vehicle_for_test_ride = data.item
+    }
+    if (data.SelectedServices) {
+      form.form_submission_service_required = data.SelectedServices.join()
+    }
+    if (data.productId || data.productExternalId) {
+      form.product_id = window.isExternalBrandedZoneSite
+        ? data.productExternalId
+        : data.productId
+    }
+  }
+
+  mapFormMetadata(form, data) {
+    form.form_name = data.FormName || data.formName
+    form.form_type = data.Type || data.formType
+    form.form_id = data.FormId || data.formId
+
+    // Special case matching old template
+    if (form.form_name === 'Get Promotions') {
+      form.tealium_event = 'did_get_a_quote_form_submit'
+    }
+
+    if (data.LeadId) form.form_submission_id = data.LeadId
+
+    // Location handling
+    if (data.AllLocations?.length > 0 && data.SelectedLocation) {
+      const selectedValue = Array.isArray(data.SelectedLocation)
+        ? data.SelectedLocation[0].value
+        : data.SelectedLocation
+      const location = data.AllLocations.find(
+        (item) => item.value == selectedValue
+      )
+      if (location) form.form_submission_location_name = location.text
+    } else if (data.locationName) {
+      form.form_submission_location_name = data.locationName
+    }
+  }
+
+  getProductDetailsForSubmission(data) {
+    const pageType = window.utag_data?.page_type
+
+    if (pageType === 'search') {
+      // Update loaded product info for search pages
+      if (window.loadedProductInfo) {
+        Object.assign(window.loadedProductInfo, {
+          imageCount: data.imageCount,
+          videoCount: data.videoCount,
+          descriptionLength: data.descriptionLength,
+        })
+      }
+      return window.productHandler?.parseProductsData?.(data) || {}
+    } else if (pageType === 'finance') {
+      return window.analyticsUtils?.getProductsDataFromQueryString?.() || {}
+    } else {
+      return window.productInfo || {}
+    }
+  }
+
+  buildFinalTrackingObject(form, productDetails, data) {
+    let final = Object.assign({}, window.siteUser, form, productDetails)
+
+    // Add showcase and promotion data
+    if (window.productHandler?.getShowCaseData) {
+      Object.assign(final, window.productHandler.getShowCaseData())
+    }
+    if (window.productHandler?.getPromotionData) {
+      Object.assign(final, window.productHandler.getPromotionData(form, data))
+    }
+
+    // Add page metadata
+    if (window.utag_data?.page_h1) final.page_h1 = window.utag_data.page_h1
+    if (productDetails.product_make)
+      final.page_make = productDetails.product_make.toLowerCase()
+    if (productDetails.product_make_id)
+      final.page_make_id = productDetails.product_make_id
+    if (window.pageMakeGroup) final.page_make_group = window.pageMakeGroup
+
+    return final
   }
 
   // Promotion handlers (moved from analytics-manager)

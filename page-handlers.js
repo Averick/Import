@@ -19,6 +19,218 @@ class PageHandlers {
     this.initialized = true
   }
 
+  // Handle page view tracking (called on window.load like old design)
+  handlePageViewTracking() {
+    try {
+      const pageType = window.utag_data?.page_type
+
+      // Add search/product page specific data like old design
+      if (pageType === 'search' || pageType === 'product details') {
+        window.utag_data.digital_retailing_active =
+          document.getElementsByClassName('boatyard-btn').length > 0 ? 1 : 0
+        window.utag_data.reserve_a_unit_active =
+          document.querySelectorAll('#reserveUnitBtn').length > 0 ? 1 : 0
+      }
+
+      // Check PSS condition like old design
+      const pssExists = $(".component[class*='PSS-component_']").length >= 1
+      const oemPartsLookupExists =
+        $(".component[class*='OEMPartsLookup_']").length >= 1
+
+      if (!pssExists || oemPartsLookupExists) {
+        if (
+          window.analyticsUtils &&
+          typeof window.analyticsUtils.triggerUtagView === 'function'
+        ) {
+          window.analyticsUtils.triggerUtagView(window.utag_data)
+        }
+      }
+
+      // Handle all form loads exactly like old template
+      this.handleStaticFormLoads()
+    } catch (error) {
+      console.error('Could not handle page view tracking:', error)
+    }
+  }
+
+  // Replicate EXACT old template logic for form loads
+  handleStaticFormLoads() {
+    $('.component[class*=" LeadForm_"]').each((index, element) => {
+      var form = {}
+      form.tealium_event = 'form_load'
+      var $modal = $(element)
+
+      // EXACT exclusions from old template
+      if ($modal.closest('div[class*="Staff_"]').length > 0) {
+        return true
+      }
+      if ($modal.closest('div[class*="OfferedServices_"]').length > 0) {
+        return true
+      }
+      if ($modal.closest('div[class*="ShowcaseRoot_"]').length > 0) {
+        return true
+      }
+      if ($modal.closest('div[class*="VDP-Unit-Detail_"]').length > 0) {
+        return true
+      }
+      if ($modal.closest('div[class*="SearchRoot_"]').length > 0) {
+        return true
+      }
+
+      form.form_name = $modal
+        .find('span[data-form-name]')
+        .attr('data-form-name')
+      form.form_type = $modal
+        .find('span[data-lead-type]')
+        .attr('data-lead-type')
+      form.form_id = $modal.find('span[data-form-id]').attr('data-form-id')
+      var formDetail = $modal.find('.ari-form').attr('id')
+
+      // Skip for "Can't Find What You're Looking For?" form like old template
+      if (form.form_id == 1461 && screen.width >= 768) {
+        return true
+      }
+
+      // Extract product data EXACTLY like old template
+      var productData = []
+      if (window.utag_data?.page_type === 'finance') {
+        productData =
+          window.analyticsUtils?.getProductsDataFromQueryString() || []
+      } else {
+        var itemDataSource = $modal.find('.datasource.hidden')
+        if (itemDataSource && itemDataSource.length > 0) {
+          var itemData = itemDataSource[0].innerHTML
+          if (itemData) {
+            var productJson = null
+            try {
+              productJson = JSON.parse(itemData)
+            } catch (e) {
+              // Silent fail like old template
+            }
+            if (productJson && productJson.productId && window.productHandler) {
+              productData =
+                window.productHandler.parseProductsData(
+                  this.config || {},
+                  productJson
+                ) || []
+            }
+          }
+        }
+      }
+
+      if (form.form_id && form.form_type && form.form_name) {
+        // Build final object EXACTLY like old template
+        var final = $.extend({}, window.siteUser || {}, form, productData)
+
+        // Add showcase data if available
+        if (window.productHandler?.getShowCaseData) {
+          final = $.extend(final, window.productHandler.getShowCaseData())
+        }
+
+        if (window.utag_data?.page_h1) {
+          final.page_h1 = window.utag_data.page_h1
+        }
+        if (productData.product_make) {
+          final.page_make = productData.product_make.toLowerCase()
+        }
+        if (productData.product_make_id) {
+          final.page_make_id = productData.product_make_id
+        }
+        if (window.pageMakeGroup) {
+          final.page_make_group = window.pageMakeGroup
+        }
+
+        // Trigger utag.link EXACTLY like old template
+        window.analyticsUtils?.triggerUtagLink(final, 'form_load')
+
+        // Setup form interaction EXACTLY like old template
+        if (window.formHandler?.formInteraction) {
+          window.formHandler.formInteraction(final, formDetail)
+        }
+      }
+    })
+
+    // Handle special forms EXACTLY like old template
+    this.handleSpecialForms()
+  }
+
+  handleSpecialForms() {
+    // Can't find form handling - EXACT copy from old template
+    $('button[href*=".cant-find-form"]').each(function (i) {
+      $(this).click(function () {
+        if (screen.width >= 768 && $(this).hasClass('expanded')) {
+          var modal = $('.ari-row.cant-find-form')
+          window.TriggerUtagFormLoad?.(modal)
+        }
+      })
+    })
+
+    // Offered services form handling - EXACT copy from old template
+    var modalName = $(
+      '.component[class*="OfferedServices_"].ari-componentinstance ul li.active a'
+    ).attr('href')
+    window.TriggerOfferedServicesFormLoad?.(modalName)
+
+    $(
+      '.component[class*="OfferedServices_"].ari-componentinstance ul li'
+    ).click(function () {
+      var modalName = $(this).find('a').attr('href')
+      window.TriggerOfferedServicesFormLoad?.(modalName)
+    })
+
+    // Setup searchModalOpen event - EXACT copy from old template
+    document.addEventListener('searchModalOpen', function (e) {
+      var form = {}
+      form.tealium_event = 'form_load'
+      var productData = {}
+      var item = e.detail
+      var formDetail = ''
+      if (item) {
+        if (window.productHandler?.parseProductsData) {
+          productData = window.productHandler.parseProductsData(item)
+        }
+        form.form_name = item.formName
+        form.form_type = item.formType
+        form.form_id = item.formId
+        if (window.isExternalBrandedZoneSite && item.productId) {
+          formDetail = `${item.modelName}_${item.productId}`
+        } else {
+          formDetail = `${item.modelName}_${productData.product_id}`
+        }
+        if (window.loadedProductInfo) {
+          window.loadedProductInfo.imageCount =
+            productData.product_custom_image_count
+          window.loadedProductInfo.videoCount = productData.product_videos_count
+          window.loadedProductInfo.descriptionLength =
+            productData.product_description_char_count
+        }
+      }
+      if (form.form_id && form.form_type && form.form_name) {
+        var final = $.extend({}, window.siteUser || {}, form, productData)
+        if (window.utag_data?.page_h1) {
+          final.page_h1 = window.utag_data.page_h1
+        }
+        if (productData.product_make) {
+          final.page_make = productData.product_make.toLowerCase()
+        }
+        if (productData.product_make_id) {
+          final.page_make_id = productData.product_make_id
+        }
+        if (window.pageMakeGroup) {
+          final.page_make_group = window.pageMakeGroup
+        }
+
+        // Trigger utag.link EXACTLY like old template
+        window.analyticsUtils?.triggerUtagLink(final, 'form_load')
+
+        // Setup form interaction EXACTLY like old template
+        if (window.formHandler?.formInteraction) {
+          window.formHandler.formInteraction(final, formDetail)
+        }
+      }
+    })
+  }
+
   handlePageSpecificLogic() {
     const pageType = this.utag_data?.page_type
 
