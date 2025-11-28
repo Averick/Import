@@ -463,8 +463,18 @@ class FormHandler {
     )
 
     if (formElement) {
-      console.log(`Form with ID found, attaching event listeners.`)
       const formKey = this.getFormKey(final)
+
+      // Check if listeners are already attached to this form element
+      if (formElement.hasAttribute('data-interaction-listeners-attached')) {
+        console.log(`Form listeners already attached for ${formDetail}`)
+        return
+      }
+
+      console.log(`Form with ID found, attaching event listeners.`)
+
+      // Mark that listeners are attached to prevent duplicates
+      formElement.setAttribute('data-interaction-listeners-attached', 'true')
 
       // Function to handle first interaction
       const handleFirstInteraction = () => {
@@ -485,6 +495,9 @@ class FormHandler {
           formElement.removeEventListener('input', handleFirstInteraction)
           formElement.removeEventListener('focus', handleFirstInteraction)
           formElement.removeEventListener('click', handleFirstInteraction)
+
+          // Remove the marker so listeners can be reattached if needed
+          formElement.removeAttribute('data-interaction-listeners-attached')
         }
       }
 
