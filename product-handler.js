@@ -530,6 +530,19 @@ class ProductHandler {
 
     return promotion
   }
+
+  // Get product data from query string (from old template)
+  getProductsDataFromQueryString() {
+    try {
+      const queryString = window.location.search
+      if (queryString && window.analyticsUtils) {
+        return window.analyticsUtils.QueryStringToJSON() || {}
+      }
+    } catch (error) {
+      console.warn('Failed to parse query string for product data:', error)
+    }
+    return {}
+  }
 }
 
 // Initialize product handler (self-contained)
