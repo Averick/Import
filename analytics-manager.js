@@ -118,13 +118,15 @@ class AnalyticsManager {
 
   trackPageView() {
     try {
-      // Use global utag_data object like old design (already populated by template)
-      if (
-        window.analyticsUtils &&
-        typeof window.analyticsUtils.triggerUtagView === 'function'
-      ) {
-        window.analyticsUtils.triggerUtagView(window.utag_data)
-      }
+      // Wait for window.load and delegate to page handlers for page-specific logic
+      $(window).on('load', () => {
+        if (
+          window.pageHandlers &&
+          typeof window.pageHandlers.handlePageViewTracking === 'function'
+        ) {
+          window.pageHandlers.handlePageViewTracking()
+        }
+      })
     } catch (error) {
       console.error('Could not track page view:', error)
     }
