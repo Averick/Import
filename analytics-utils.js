@@ -31,7 +31,7 @@ class AnalyticsUtils {
   }
 
   triggerUtagLink(utag_data, eventType = null, customData = {}) {
-    const eventData = Object.assign({}, utag_data, customData)
+    const eventData = Object.assign({}, customData)
     if (eventType) {
       eventData.tealium_event = eventType
     }
@@ -490,3 +490,4 @@ class AnalyticsUtils {
   // AnalyticsUtils is available in this script's scope
   window.analyticsUtils = new AnalyticsUtils()
 })()
+
