@@ -2373,10 +2373,18 @@ class FormHandler {
     // Listen for custom form submission events
     document.addEventListener('FormSubmissionDetails', (e) => {
       this.executeWithErrorHandling(() => {
-        if (e.detail && e.detail.formData) {
+        let capturedFormData = {};
+
+        if (e.detail) {
+          capturedFormData = e.detail;
+        } else if (e.detail.formData) {
+          capturedFormData = e.detail.formData;
+        }
+
+        if (capturedFormData) {
           const eventData = {
             tealium_event: 'form_submit',
-            ...e.detail.formData,
+            ...capturedFormData,
           }
 
           // Check for specific form submission types
