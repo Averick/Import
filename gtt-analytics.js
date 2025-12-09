@@ -2373,10 +2373,18 @@ class FormHandler {
     // Listen for custom form submission events
     document.addEventListener('FormSubmissionDetails', (e) => {
       this.executeWithErrorHandling(() => {
-        if (e.detail && e.detail.formData) {
+        let capturedFormData = {};
+
+        if (e.detail) {
+          capturedFormData = e.detail;
+        } else if (e.detail.formData) {
+          capturedFormData = e.detail.formData;
+        }
+
+        if (capturedFormData) {
           const eventData = {
             tealium_event: 'form_submit',
-            ...e.detail.formData,
+            ...capturedFormData,
           }
 
           // Check for specific form submission types
@@ -2867,7 +2875,9 @@ class AnalyticsManager {
         var form = {}
         form.tealium_event = 'form_submit'
 
-        if (e.detail && e.detail.formData) {
+        if (e.detail) {
+          form = Object.assign({}, form, e.detail)
+        } else if (e.detail.formData) {
           form = Object.assign({}, form, e.detail.formData)
         }
 
@@ -2881,16 +2891,18 @@ class AnalyticsManager {
         let productDetails = {}
 
         if (pageType === 'search') {
-          // For search pages, parse from form data
-          if (e.detail && e.detail.formData && window.productHandler) {
-            productDetails =
-              window.productHandler.parseProductsData(
-                this.config,
-                e.detail.formData
-              ) || {}
+          if (e.detail) {
+            productDetails = window.productHandler.parseProductsData(
+              this.config,
+              e.detail
+            ) || {}
+          } else if (e.detail.formData) {
+            productDetails = window.productHandler.parseProductsData(
+              this.config,
+              e.detail.formData
+            ) || {}
           }
         } else if (pageType === 'finance') {
-          // For finance pages, get from query string
           if (
             window.productHandler &&
             window.productHandler.getProductsDataFromQueryString
@@ -2899,18 +2911,15 @@ class AnalyticsManager {
               window.productHandler.getProductsDataFromQueryString() || {}
           }
         } else {
-          // For product details and other pages, use global productInfo
           productDetails = this.config.productInfo || {}
         }
 
-        // Get showcase and promotion data
         const showcaseData =
           window.productHandler?.getShowCaseData?.(this.utag_data) || {}
         const promotionData =
           window.productHandler?.getPromotionData?.(form, e.detail?.formData) ||
           {}
 
-        // Merge all data
         var final = Object.assign(
           {},
           this.config.siteUser,
@@ -2924,7 +2933,6 @@ class AnalyticsManager {
           final.page_h1 = this.utag_data.page_h1
         }
 
-        // Set page make info from product details
         if (productDetails.product_make) {
           final.page_make = productDetails.product_make.toLowerCase()
         }
@@ -2939,10 +2947,7 @@ class AnalyticsManager {
       }, 'Could not trigger utag.link method for form submission')
     })
 
-    // Inventory promo message click handler
     this.setupInventoryPromoHandler()
-
-    // eCommerce event listeners
     this.setupEcommerceEventListeners()
   }
 
