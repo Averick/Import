@@ -31,7 +31,7 @@ class AnalyticsUtils {
   }
 
   triggerUtagLink(utag_data, eventType = null, customData = {}) {
-    const eventData = Object.assign({}, customData)
+    const eventData = Object.assign({}, utag_data || {}, customData)
     if (eventType) {
       eventData.tealium_event = eventType
     }
@@ -1046,10 +1046,12 @@ class EventHandler {
 
   initialize(config, utag_data) {
     if (this.initialized) return
+
     const handleGoogleMapClick = (event) => {
       utag_data.tealium_event = 'google_map_click'
       this.triggerUtagLink({ tealium_event: 'google_map_click' })
     }
+
     const handlePromoClick = (event, matchingElement) => {
       var clickedPromotionDetails = matchingElement.querySelector('script')
 
@@ -1086,6 +1088,7 @@ class EventHandler {
 
       this.triggerUtagLink(utag_data)
     }
+
     const handleCarouselClick = (event, matchingElement) => {
       var currentlyVisibleSlide = matchingElement.querySelector(
         'div[class*="slide slick-slide slick-current"]'
@@ -1116,6 +1119,7 @@ class EventHandler {
 
       this.triggerUtagLink(final)
     }
+
     const mousedownEventDelegationMap = [
       {
         selector: '.location-directions',
@@ -1700,7 +1704,6 @@ class FormHandler {
         // Extract product data from modal form datasource
         const modalProductData = self.extractFormProductData(modal)
 
-        // Merge with existing product info and form data
         var final = $.extend(
           {},
           config.siteUser,
@@ -1734,7 +1737,6 @@ class FormHandler {
       var formDetail = ''
 
       if (item) {
-        // Use productHandler to parse product data if available
         if (
           window.productHandler &&
           typeof window.productHandler.parseProductsData === 'function'
@@ -1761,10 +1763,7 @@ class FormHandler {
             final.page_make_group = config.pageMakeGroup
           }
 
-          // Track the event using the callback
           this.trackEvent('form_load', final)
-
-          // Set up form interaction tracking using formInteraction method like original
           this.formInteraction(final, formDetail)
         }
       }
@@ -2364,6 +2363,10 @@ class FormHandler {
 
   // Enhanced form submission handling
   setupFormSubmissionTracking() {
+    /* 
+    // Commenting out redundant listeners to prevent double firing.
+    // These are handled by AnalyticsManager.setupCustomEventListeners with richer data context.
+    
     document.addEventListener('submit', (event) => {
       const form = event.target
       const parentComponent = form.closest('.component[class*=" LeadForm_"]')
@@ -2399,6 +2402,7 @@ class FormHandler {
         }
       }, 'Could not process form submission details event')
     })
+    */
   }
 
   // Helper method to execute code with error handling
