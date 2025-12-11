@@ -31,7 +31,7 @@ class AnalyticsUtils {
   }
 
   triggerUtagLink(utag_data, eventType = null, customData = {}) {
-    const eventData = Object.assign({}, customData)
+    const eventData = Object.assign({}, utag_data || {}, customData)
     if (eventType) {
       eventData.tealium_event = eventType
     }
@@ -1179,8 +1179,9 @@ class EventHandler {
         // Trigger both traditional addtocart and new eCommerce event
         this.triggerUtagTrack('addtocart', ecommerceData)
         window.analyticsUtils.triggerUtagLink(
-          ecommerceData,
-          'ecommerce_part_cart_action'
+          {},
+          'ecommerce_part_cart_action',
+          ecommerceData
         )
       }.bind(this)
     )
@@ -1617,8 +1618,9 @@ class EventHandler {
           }
           // Trigger the event through analytics utils
           window.analyticsUtils.triggerUtagLink(
-            event.data,
-            'ecommerce_part_cart_action'
+            {},
+            'ecommerce_part_cart_action',
+            event.data
           )
         }
       }, 'Error processing eCommerce cart action event')
@@ -1636,8 +1638,9 @@ class EventHandler {
           }
           // Trigger the event through analytics utils
           window.analyticsUtils.triggerUtagLink(
-            event.data,
-            'ecommerce_part_modify_cart'
+            {},
+            'ecommerce_part_modify_cart',
+            event.data
           )
         }
       }, 'Error processing eCommerce part modification event')
@@ -1717,7 +1720,7 @@ class FormHandler {
         if (config.pageMakeGroup) {
           final.page_make_group = config.pageMakeGroup
         }
-        window.analyticsUtils.triggerUtagLink(final, final.tealium_event)
+        window.analyticsUtils.triggerUtagLink({}, final.tealium_event, final)
         self.formInteraction(final, formdetail)
       }
     })
@@ -2849,8 +2852,9 @@ class AnalyticsManager {
         }
         var final = Object.assign({}, this.config.siteUser, promo)
         window.analyticsUtils.triggerUtagLink(
-          final,
-          'did_view_offer_details_click'
+          {},
+          'did_view_offer_details_click',
+          final
         )
       }, 'Could not trigger utag.link on promotion ' + (e.detail?.promotionId || ''))
     })
@@ -2865,7 +2869,7 @@ class AnalyticsManager {
           promo.campaign_id = e.detail.promotionId
         }
         var final = Object.assign({}, this.config.siteUser, promo)
-        window.analyticsUtils.triggerUtagLink(final, 'did_view_more_click')
+        window.analyticsUtils.triggerUtagLink({}, 'did_view_more_click', final)
       }, 'Could not trigger utag.link on promotion ' + (e.detail?.promotionId || ''))
     })
 
@@ -2943,7 +2947,7 @@ class AnalyticsManager {
           final.page_make_group = this.config.pageMakeGroup
         }
 
-        window.analyticsUtils.triggerUtagLink(final, form.tealium_event)
+        window.analyticsUtils.triggerUtagLink({}, form.tealium_event, final)
       }, 'Could not trigger utag.link method for form submission')
     })
 
@@ -2986,8 +2990,9 @@ class AnalyticsManager {
     this.executeWithErrorHandling(() => {
       this.utag_data.tealium_event = 'did_limited_time_offer_click'
       window.analyticsUtils.triggerUtagLink(
-        this.utag_data,
-        'did_limited_time_offer_click'
+        {},
+        'did_limited_time_offer_click',
+        this.utag_data
       )
     }, 'Could not trigger limited time offer click event')
   }
