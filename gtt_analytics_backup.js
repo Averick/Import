@@ -22,7 +22,8 @@ class AnalyticsUtils {
 
   // Tealium utilities
   triggerUtagView(utag_data, customData = {}) {
-    const eventData = Object.assign({}, utag_data, customData)
+    let eventData = Object.assign({}, utag_data, customData)
+    eventData = this.convertToSnakeCaseKeys(eventData)
     if (typeof utag !== 'undefined') {
       utag.view(eventData)
     } else {
@@ -31,10 +32,11 @@ class AnalyticsUtils {
   }
 
   triggerUtagLink(utag_data, eventType = null, customData = {}) {
-    const eventData = Object.assign({}, customData)
+    let eventData = Object.assign({}, customData)
     if (eventType) {
       eventData.tealium_event = eventType
     }
+    eventData = this.convertToSnakeCaseKeys(eventData)
     if (typeof utag !== 'undefined') {
       utag.link(eventData)
     } else {
@@ -43,6 +45,17 @@ class AnalyticsUtils {
         }`
       )
     }
+  }
+
+  convertToSnakeCaseKeys(obj) {
+    const newObj = {}
+    Object.keys(obj).forEach((key) => {
+      const newKey = key
+        .replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)
+        .replace(/^_/, '')
+      newObj[newKey] = obj[key]
+    })
+    return newObj
   }
 
   triggerUtagTrack(eventName, eventData) {
@@ -1046,10 +1059,12 @@ class EventHandler {
 
   initialize(config, utag_data) {
     if (this.initialized) return
+
     const handleGoogleMapClick = (event) => {
       utag_data.tealium_event = 'google_map_click'
       this.triggerUtagLink({ tealium_event: 'google_map_click' })
     }
+
     const handlePromoClick = (event, matchingElement) => {
       var clickedPromotionDetails = matchingElement.querySelector('script')
 
@@ -1086,6 +1101,7 @@ class EventHandler {
 
       this.triggerUtagLink(utag_data)
     }
+
     const handleCarouselClick = (event, matchingElement) => {
       var currentlyVisibleSlide = matchingElement.querySelector(
         'div[class*="slide slick-slide slick-current"]'
@@ -1116,6 +1132,7 @@ class EventHandler {
 
       this.triggerUtagLink(final)
     }
+
     const mousedownEventDelegationMap = [
       {
         selector: '.location-directions',
@@ -1179,8 +1196,9 @@ class EventHandler {
         // Trigger both traditional addtocart and new eCommerce event
         this.triggerUtagTrack('addtocart', ecommerceData)
         window.analyticsUtils.triggerUtagLink(
-          ecommerceData,
-          'ecommerce_part_cart_action'
+          {},
+          'ecommerce_part_cart_action',
+          ecommerceData
         )
       }.bind(this)
     )
@@ -1617,8 +1635,9 @@ class EventHandler {
           }
           // Trigger the event through analytics utils
           window.analyticsUtils.triggerUtagLink(
-            event.data,
-            'ecommerce_part_cart_action'
+            {},
+            'ecommerce_part_cart_action',
+            event.data
           )
         }
       }, 'Error processing eCommerce cart action event')
@@ -1636,8 +1655,9 @@ class EventHandler {
           }
           // Trigger the event through analytics utils
           window.analyticsUtils.triggerUtagLink(
-            event.data,
-            'ecommerce_part_modify_cart'
+            {},
+            'ecommerce_part_modify_cart',
+            event.data
           )
         }
       }, 'Error processing eCommerce part modification event')
@@ -1697,7 +1717,6 @@ class FormHandler {
         // Extract product data from modal form datasource
         const modalProductData = self.extractFormProductData(modal)
 
-        // Merge with existing product info and form data
         var final = $.extend(
           {},
           config.siteUser,
@@ -1717,7 +1736,7 @@ class FormHandler {
         if (config.pageMakeGroup) {
           final.page_make_group = config.pageMakeGroup
         }
-        window.analyticsUtils.triggerUtagLink(final, final.tealium_event)
+        window.analyticsUtils.triggerUtagLink({}, final.tealium_event, final)
         self.formInteraction(final, formdetail)
       }
     })
@@ -1731,7 +1750,6 @@ class FormHandler {
       var formDetail = ''
 
       if (item) {
-        // Use productHandler to parse product data if available
         if (
           window.productHandler &&
           typeof window.productHandler.parseProductsData === 'function'
@@ -1758,10 +1776,7 @@ class FormHandler {
             final.page_make_group = config.pageMakeGroup
           }
 
-          // Track the event using the callback
           this.trackEvent('form_load', final)
-
-          // Set up form interaction tracking using formInteraction method like original
           this.formInteraction(final, formDetail)
         }
       }
@@ -1936,21 +1951,31 @@ class FormHandler {
   }
 
   extractFormData(formElement) {
-    const formNameElement = formElement.querySelector('span[data-form-name]')
-    const leadTypeElement = formElement.querySelector('span[data-lead-type]')
-    const formIdElement = formElement.querySelector('span[data-form-id]')
-    const formLocationElement = formElement.querySelector(
-      'span[data-form-location]'
-    )
-
-    return {
-      form_name: formNameElement?.getAttribute('data-form-name') || '',
-      form_type: leadTypeElement?.getAttribute('data-lead-type') || '',
-      form_id: formIdElement?.getAttribute('data-form-id') || '',
-      form_location:
-        formLocationElement?.getAttribute('data-form-location') || '',
+    const extractedData = {
       form_element: formElement,
     }
+
+    const processAttributes = (element) => {
+      if (element && element.attributes) {
+        Array.from(element.attributes).forEach((attr) => {
+          if (attr.name.startsWith('data-')) {
+            const key = attr.name.slice(5).replace(/-/g, '_')
+            extractedData[key] = attr.value
+          }
+        })
+      }
+    }
+
+    processAttributes(formElement)
+
+    const spans = formElement.querySelectorAll('span')
+    spans.forEach((span) => processAttributes(span))
+
+    if (extractedData.lead_type && !extractedData.form_type) {
+      extractedData.form_type = extractedData.lead_type
+    }
+
+    return extractedData
   }
 
   isValidForm(formData) {
@@ -2361,6 +2386,10 @@ class FormHandler {
 
   // Enhanced form submission handling
   setupFormSubmissionTracking() {
+    /* 
+    // Commenting out redundant listeners to prevent double firing.
+    // These are handled by AnalyticsManager.setupCustomEventListeners with richer data context.
+    
     document.addEventListener('submit', (event) => {
       const form = event.target
       const parentComponent = form.closest('.component[class*=" LeadForm_"]')
@@ -2396,6 +2425,7 @@ class FormHandler {
         }
       }, 'Could not process form submission details event')
     })
+    */
   }
 
   // Helper method to execute code with error handling
@@ -2849,8 +2879,9 @@ class AnalyticsManager {
         }
         var final = Object.assign({}, this.config.siteUser, promo)
         window.analyticsUtils.triggerUtagLink(
-          final,
-          'did_view_offer_details_click'
+          {},
+          'did_view_offer_details_click',
+          final
         )
       }, 'Could not trigger utag.link on promotion ' + (e.detail?.promotionId || ''))
     })
@@ -2865,7 +2896,7 @@ class AnalyticsManager {
           promo.campaign_id = e.detail.promotionId
         }
         var final = Object.assign({}, this.config.siteUser, promo)
-        window.analyticsUtils.triggerUtagLink(final, 'did_view_more_click')
+        window.analyticsUtils.triggerUtagLink({}, 'did_view_more_click', final)
       }, 'Could not trigger utag.link on promotion ' + (e.detail?.promotionId || ''))
     })
 
@@ -2875,6 +2906,8 @@ class AnalyticsManager {
         var form = {}
         form.tealium_event = 'form_submit'
 
+
+
         if (e.detail) {
           form = Object.assign({}, form, e.detail)
         } else if (e.detail.formData) {
@@ -2882,7 +2915,7 @@ class AnalyticsManager {
         }
 
         // Handle specific form submission types
-        if (form.form_name === 'Get A Quote') {
+        if (form.form_name === 'Get A Quote' || form.FormName === 'Get A Quote') {
           form.tealium_event = 'did_get_a_quote_form_submit'
         }
 
@@ -2943,7 +2976,7 @@ class AnalyticsManager {
           final.page_make_group = this.config.pageMakeGroup
         }
 
-        window.analyticsUtils.triggerUtagLink(final, form.tealium_event)
+        window.analyticsUtils.triggerUtagLink({}, form.tealium_event, final)
       }, 'Could not trigger utag.link method for form submission')
     })
 
@@ -2986,8 +3019,9 @@ class AnalyticsManager {
     this.executeWithErrorHandling(() => {
       this.utag_data.tealium_event = 'did_limited_time_offer_click'
       window.analyticsUtils.triggerUtagLink(
-        this.utag_data,
-        'did_limited_time_offer_click'
+        {},
+        'did_limited_time_offer_click',
+        this.utag_data
       )
     }, 'Could not trigger limited time offer click event')
   }
@@ -3070,4 +3104,3 @@ class AnalyticsManager {
     return window.formHandler.TriggerUtagFormLoad(modal)
   }
 })()
-
