@@ -1951,21 +1951,31 @@ class FormHandler {
   }
 
   extractFormData(formElement) {
-    const formNameElement = formElement.querySelector('span[data-form-name]')
-    const leadTypeElement = formElement.querySelector('span[data-lead-type]')
-    const formIdElement = formElement.querySelector('span[data-form-id]')
-    const formLocationElement = formElement.querySelector(
-      'span[data-form-location]'
-    )
-
-    return {
-      form_name: formNameElement?.getAttribute('data-form-name') || '',
-      form_type: leadTypeElement?.getAttribute('data-lead-type') || '',
-      form_id: formIdElement?.getAttribute('data-form-id') || '',
-      form_location:
-        formLocationElement?.getAttribute('data-form-location') || '',
+    const extractedData = {
       form_element: formElement,
     }
+
+    const processAttributes = (element) => {
+      if (element && element.attributes) {
+        Array.from(element.attributes).forEach((attr) => {
+          if (attr.name.startsWith('data-')) {
+            const key = attr.name.slice(5).replace(/-/g, '_')
+            extractedData[key] = attr.value
+          }
+        })
+      }
+    }
+
+    processAttributes(formElement)
+
+    const spans = formElement.querySelectorAll('span')
+    spans.forEach((span) => processAttributes(span))
+
+    if (extractedData.lead_type && !extractedData.form_type) {
+      extractedData.form_type = extractedData.lead_type
+    }
+
+    return extractedData
   }
 
   isValidForm(formData) {
