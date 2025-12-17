@@ -22,7 +22,8 @@ class AnalyticsUtils {
 
   // Tealium utilities
   triggerUtagView(utag_data, customData = {}) {
-    const eventData = Object.assign({}, utag_data, customData)
+    let eventData = Object.assign({}, utag_data, customData)
+    eventData = this.convertToSnakeCaseKeys(eventData)
     if (typeof utag !== 'undefined') {
       utag.view(eventData)
     } else {
@@ -31,10 +32,11 @@ class AnalyticsUtils {
   }
 
   triggerUtagLink(utag_data, eventType = null, customData = {}) {
-    const eventData = Object.assign({}, customData)
+    let eventData = Object.assign({}, customData)
     if (eventType) {
       eventData.tealium_event = eventType
     }
+    eventData = this.convertToSnakeCaseKeys(eventData)
     if (typeof utag !== 'undefined') {
       utag.link(eventData)
     } else {
@@ -43,6 +45,17 @@ class AnalyticsUtils {
         }`
       )
     }
+  }
+
+  convertToSnakeCaseKeys(obj) {
+    const newObj = {}
+    Object.keys(obj).forEach((key) => {
+      const newKey = key
+        .replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)
+        .replace(/^_/, '')
+      newObj[newKey] = obj[key]
+    })
+    return newObj
   }
 
   triggerUtagTrack(eventName, eventData) {
@@ -2883,22 +2896,16 @@ class AnalyticsManager {
         var form = {}
         form.tealium_event = 'form_submit'
 
-        const toSnakeCase = (str) =>
-          str
-            .replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)
-            .replace(/^_/, '')
+
 
         if (e.detail) {
-          const detailData = e.detail
-          const snakeCaseData = {}
-          Object.keys(detailData).forEach((key) => {
-            snakeCaseData[toSnakeCase(key)] = detailData[key]
-          })
-          form = Object.assign({}, form, snakeCaseData)
+          form = Object.assign({}, form, e.detail)
+        } else if (e.detail.formData) {
+          form = Object.assign({}, form, e.detail.formData)
         }
 
         // Handle specific form submission types
-        if (form.form_name === 'Get A Quote') {
+        if (form.form_name === 'Get A Quote' || form.FormName === 'Get A Quote') {
           form.tealium_event = 'did_get_a_quote_form_submit'
         }
 
