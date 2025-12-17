@@ -2883,10 +2883,18 @@ class AnalyticsManager {
         var form = {}
         form.tealium_event = 'form_submit'
 
+        const toSnakeCase = (str) =>
+          str
+            .replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)
+            .replace(/^_/, '')
+
         if (e.detail) {
-          form = Object.assign({}, form, e.detail)
-        } else if (e.detail.formData) {
-          form = Object.assign({}, form, e.detail.formData)
+          const detailData = e.detail
+          const snakeCaseData = {}
+          Object.keys(detailData).forEach((key) => {
+            snakeCaseData[toSnakeCase(key)] = detailData[key]
+          })
+          form = Object.assign({}, form, snakeCaseData)
         }
 
         // Handle specific form submission types
