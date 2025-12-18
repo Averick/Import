@@ -32,7 +32,7 @@ class AnalyticsUtils {
     }
   }
 
-  triggerUtagLink(utag_data, eventType = null, customData = {}) {
+  triggerUtagLink(utag_data, eventType = null, customData = {}, callback = null) {
     let eventData = Object.assign({}, customData)
     if (eventType) {
       eventData.tealium_event = eventType
@@ -40,7 +40,11 @@ class AnalyticsUtils {
     eventData = this.convertToSnakeCaseKeys(eventData)
     eventData = this.cleanEventData(eventData)
     if (typeof utag !== 'undefined') {
-      utag.link(eventData)
+      if (callback && typeof callback === 'function') {
+        utag.link(eventData, callback)
+      } else {
+        utag.link(eventData)
+      }
     } else {
       console.log(
         `Could not trigger utag.link method for event: ${eventType || 'unknown'
@@ -75,6 +79,12 @@ class AnalyticsUtils {
   }
 
   triggerUtagTrack(eventName, eventData) {
+    if (eventData) {
+      // Create a shallow copy to avoid mutating the original object
+      eventData = Object.assign({}, eventData)
+      eventData = this.cleanEventData(eventData)
+    }
+
     if (window.utag && typeof utag.track === 'function') {
       utag.track(eventName, eventData)
     }
@@ -1293,16 +1303,10 @@ class EventHandler {
         }
       }
 
-      if (
-        updatedData &&
-        typeof utag !== 'undefined' &&
-        typeof utag.link === 'function'
-      ) {
-        utag.link(updatedData, null, [
-          function () {
-            triggerRedirect()
-          },
-        ])
+      if (updatedData) {
+        window.analyticsUtils.triggerUtagLink({}, null, updatedData, function () {
+          triggerRedirect()
+        })
       } else {
         triggerRedirect()
       }
@@ -2107,13 +2111,7 @@ class FormHandler {
           finalInteractionData.tealium_event = 'form_interaction'
 
           // Trigger the event exactly like original
-          if (typeof utag !== 'undefined') {
-            utag.link(finalInteractionData)
-          } else {
-            console.log(
-              'Could not trigger utag.link method for form interaction.'
-            )
-          }
+          window.analyticsUtils.triggerUtagLink({}, 'form_interaction', finalInteractionData)
 
           // Remove event listeners after the first interaction (exactly like original)
           formElement.removeEventListener('input', handleFirstInteraction)
