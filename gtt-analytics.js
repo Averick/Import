@@ -24,6 +24,7 @@ class AnalyticsUtils {
   triggerUtagView(utag_data, customData = {}) {
     let eventData = Object.assign({}, utag_data, customData)
     eventData = this.convertToSnakeCaseKeys(eventData)
+    eventData = this.cleanEventData(eventData)
     if (typeof utag !== 'undefined') {
       utag.view(eventData)
     } else {
@@ -37,6 +38,7 @@ class AnalyticsUtils {
       eventData.tealium_event = eventType
     }
     eventData = this.convertToSnakeCaseKeys(eventData)
+    eventData = this.cleanEventData(eventData)
     if (typeof utag !== 'undefined') {
       utag.link(eventData)
     } else {
@@ -56,6 +58,20 @@ class AnalyticsUtils {
       newObj[newKey] = obj[key]
     })
     return newObj
+  }
+
+  cleanEventData(obj) {
+    if (obj['lead_type']) {
+      obj['form_type'] = obj['lead_type']
+    }
+    delete obj['lead_type']
+
+    Object.keys(obj).forEach((key) => {
+      if (obj[key] === null || obj[key] === '' || obj[key] === undefined) {
+        delete obj[key]
+      }
+    })
+    return obj
   }
 
   triggerUtagTrack(eventName, eventData) {
