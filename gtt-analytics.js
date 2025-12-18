@@ -2707,6 +2707,9 @@ class AnalyticsManager {
 
   initialize(config) {
     console.log('Initializing Tealium Analytics Manager')
+    if (config && window.analyticsUtils) {
+      config = window.analyticsUtils.cleanEventData(config)
+    }
     this.config = config
 
     // Process configuration and create utag_data
