@@ -65,14 +65,27 @@ class AnalyticsUtils {
   }
 
   cleanEventData(obj) {
+    if (typeof obj !== 'object' || obj === null) {
+      return obj
+    }
+
+    if (Array.isArray(obj)) {
+      return obj
+        .map((item) => this.cleanEventData(item))
+        .filter((item) => item !== null && item !== '' && item !== undefined)
+    }
+
     if (obj['lead_type']) {
       obj['form_type'] = obj['lead_type']
     }
     delete obj['lead_type']
 
     Object.keys(obj).forEach((key) => {
-      if (obj[key] === null || obj[key] === '' || obj[key] === undefined) {
+      const value = obj[key]
+      if (value === null || value === '' || value === undefined) {
         delete obj[key]
+      } else if (typeof value === 'object') {
+        obj[key] = this.cleanEventData(value)
       }
     })
     return obj
