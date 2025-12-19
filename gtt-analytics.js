@@ -1985,7 +1985,7 @@ class FormHandler {
 
   extractFormData(formElement) {
     const extractedData = {
-      form_element: formElement,
+      form_element: '',
     }
 
     const processAttributes = (element) => {
