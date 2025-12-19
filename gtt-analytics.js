@@ -55,10 +55,22 @@ class AnalyticsUtils {
 
   convertToSnakeCaseKeys(obj) {
     const newObj = {}
+    // Special mappings for keys that don't follow standard camelCase (no uppercase letters)
+    const specialMappings = {
+      isnewvdp: 'is_new_vdp',
+    }
+
     Object.keys(obj).forEach((key) => {
-      const newKey = key
-        .replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)
-        .replace(/^_/, '')
+      let newKey
+
+      if (specialMappings[key]) {
+        newKey = specialMappings[key]
+      } else {
+        newKey = key
+          .replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)
+          .replace(/^_/, '')
+      }
+
       newObj[newKey] = obj[key]
     })
     return newObj
