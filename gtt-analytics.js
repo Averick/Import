@@ -874,7 +874,7 @@ class ProductHandler {
       arrays.industries.push(data.itemIndustry)
       arrays.makeIds.push(data.productOwnerId)
       arrays.msrps.push(data.itemOriginalPrice)
-      arrays.vins.push(data.vin)
+      arrays.vins.push(data.vin || "")
       arrays.externalColors.push(data.primaryColor)
 
       // Handle external branded zone sites
