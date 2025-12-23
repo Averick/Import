@@ -2477,6 +2477,161 @@ class FormHandler {
     }
   }
 
+  // Normalize form submission data to match legacy (old-body-output.handlebars) logic
+  normalizeFormSubmissionData(data) {
+    var form = {}
+
+    // Helper to safe unescape
+    const safeUnescape = (str) => {
+      try {
+        return unescape(str)
+      } catch (e) {
+        return str
+      }
+    }
+
+    if (
+      data.firstname ||
+      data.firstName ||
+      data.lastname ||
+      data.lastName
+    ) {
+      if (data.firstname) {
+        form.form_submission_first_name = data.firstname
+      } else if (data.firstName) {
+        form.form_submission_first_name = data.firstName
+      }
+      if (data.lastname) {
+        form.form_submission_last_name = data.lastname
+      } else if (data.lastName) {
+        form.form_submission_last_name = data.lastName
+      }
+    } else if (data.name) {
+      if (data.name.split(' ').length > 0) {
+        // logic to separate firstname and lastname in case just the "name" field exists
+        form.form_submission_first_name = safeUnescape(
+          data.name.split(' ')[0].toString()
+        )
+        var lastName = safeUnescape(
+          data.name.replace(form.form_submission_first_name, '')
+        )
+        if (lastName) {
+          form.form_submission_last_name = lastName
+        }
+      } else {
+        form.form_submission_first_name = data.name
+      }
+    } else if (data.fullname) {
+      var splittedName = data.fullname.split(' ')
+      if (splittedName.length > 0) {
+        // logic to separate firstname and lastname in case just the "fullname" field exists
+        form.form_submission_first_name = safeUnescape(
+          splittedName[0].toString()
+        )
+        var lastName = safeUnescape(
+          data.fullname.replace(form.form_submission_first_name, '')
+        )
+        if (lastName) {
+          form.form_submission_last_name = lastName
+        }
+      } else {
+        form.form_submission_first_name = data.name
+      }
+    }
+
+    if (data.email) {
+      form.form_submission_email = safeUnescape(data.email.toString())
+    } else if (data.contactEmail) {
+      form.form_submission_email = safeUnescape(data.contactEmail.toString())
+    }
+
+    if (data.phone) {
+      form.form_submission_phone_number = data.phone.toString()
+    } else if (data.phoneNumber) {
+      form.form_submission_phone_number = data.phoneNumber.toString()
+    }
+
+    if (data.address1) {
+      form.form_submission_address = data.address1.toString()
+    }
+    if (data.street1) {
+      form.form_submission_address = data.street1.toString()
+    }
+
+    if (data.city) {
+      form.form_submission_city = data.city.toString()
+    }
+
+    if (data.postalcode) {
+      form.form_submission_postal_code = data.postalcode.toString()
+    }
+    if (data.zip) {
+      form.form_submission_postal_code = data.zip.toString()
+    } else if (data.zipcode) {
+      form.form_submission_postal_code = data.zipcode.toString()
+    }
+
+    if (data.region) {
+      form.form_submission_state = data.region.toString()
+    }
+
+    if (data.tradeMake) {
+      form.form_submission_trade_in_make = safeUnescape(
+        data.tradeMake.toString()
+      )
+    }
+    if (data.tradeModel) {
+      form.form_submission_trade_in_model = safeUnescape(
+        data.tradeModel.toString()
+      )
+    }
+    if (data.tradeYear) {
+      form.form_submission_trade_in_year = data.tradeYear.toString()
+    }
+    if (data.accessories) {
+      form.form_submission_trade_in_accessories = safeUnescape(
+        data.accessories.toString()
+      )
+    }
+    if (data.usage) {
+      form.form_submission_trade_in_miles = data.usage.toString()
+    }
+
+    if (data.leadType == 'scheduletestdrive' && data.item) {
+      form.form_submission_vehicle_for_test_ride = safeUnescape(
+        data.item.toString()
+      )
+    }
+
+    if (data.SelectedServices) {
+      form.form_submission_service_required = data.SelectedServices.join()
+    }
+
+    if (data.LeadId) {
+      form.form_submission_id = data.LeadId
+    }
+
+    if (
+      data.AllLocations &&
+      data.AllLocations.length > 0 &&
+      data.SelectedLocation
+    ) {
+      const selectedLocationValue = Array.isArray(data.SelectedLocation)
+        ? data.SelectedLocation[0].value
+        : data.SelectedLocation
+      var location = data.AllLocations.find(
+        (item) => item.value == selectedLocationValue
+      )
+      if (location) {
+        form.form_submission_location_name = location.text
+      }
+    } else if (data.locationName) {
+      form.form_submission_location_name = data.locationName
+    }
+
+    return form
+  }
+
   destroy() {
     this.interactionTracked.clear()
     this.formSubmissionTracked.clear()
@@ -2950,10 +3105,13 @@ class AnalyticsManager {
 
 
 
-        if (e.detail) {
-          form = Object.assign({}, form, e.detail)
-        } else if (e.detail.formData) {
-          form = Object.assign({}, form, e.detail.formData)
+        var submissionData = e.detail && e.detail.formData ? e.detail.formData : (e.detail || {});
+        form = Object.assign({}, form, submissionData);
+
+        // Normalize specific fields to legacy format
+        if (window.formHandler && window.formHandler.normalizeFormSubmissionData) {
+            var normalizedData = window.formHandler.normalizeFormSubmissionData(submissionData);
+            form = Object.assign({}, form, normalizedData);
         }
 
         // Handle specific form submission types
