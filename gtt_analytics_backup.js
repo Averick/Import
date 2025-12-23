@@ -24,6 +24,7 @@ class AnalyticsUtils {
   triggerUtagView(utag_data, customData = {}) {
     let eventData = Object.assign({}, utag_data, customData)
     eventData = this.convertToSnakeCaseKeys(eventData)
+    eventData = this.cleanEventData(eventData)
     if (typeof utag !== 'undefined') {
       utag.view(eventData)
     } else {
@@ -31,14 +32,19 @@ class AnalyticsUtils {
     }
   }
 
-  triggerUtagLink(utag_data, eventType = null, customData = {}) {
+  triggerUtagLink(utag_data, eventType = null, customData = {}, callback = null) {
     let eventData = Object.assign({}, customData)
     if (eventType) {
       eventData.tealium_event = eventType
     }
     eventData = this.convertToSnakeCaseKeys(eventData)
+    eventData = this.cleanEventData(eventData)
     if (typeof utag !== 'undefined') {
-      utag.link(eventData)
+      if (callback && typeof callback === 'function') {
+        utag.link(eventData, callback)
+      } else {
+        utag.link(eventData)
+      }
     } else {
       console.log(
         `Could not trigger utag.link method for event: ${eventType || 'unknown'
@@ -49,16 +55,61 @@ class AnalyticsUtils {
 
   convertToSnakeCaseKeys(obj) {
     const newObj = {}
+    // Special mappings for keys that don't follow standard camelCase (no uppercase letters)
+    const specialMappings = {
+      isnewvdp: 'is_new_vdp',
+    }
+
     Object.keys(obj).forEach((key) => {
-      const newKey = key
-        .replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)
-        .replace(/^_/, '')
+      let newKey
+
+      if (specialMappings[key]) {
+        newKey = specialMappings[key]
+      } else {
+        newKey = key
+          .replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)
+          .replace(/^_/, '')
+      }
+
       newObj[newKey] = obj[key]
     })
     return newObj
   }
 
+  cleanEventData(obj) {
+    if (typeof obj !== 'object' || obj === null) {
+      return obj
+    }
+
+    if (Array.isArray(obj)) {
+      return obj
+        .map((item) => this.cleanEventData(item))
+        .filter((item) => item !== null && item !== '' && item !== undefined)
+    }
+
+    if (obj['lead_type']) {
+      obj['form_type'] = obj['lead_type']
+    }
+    delete obj['lead_type']
+
+    Object.keys(obj).forEach((key) => {
+      const value = obj[key]
+      if (value === null || value === '' || value === undefined) {
+        delete obj[key]
+      } else if (typeof value === 'object') {
+        obj[key] = this.cleanEventData(value)
+      }
+    })
+    return obj
+  }
+
   triggerUtagTrack(eventName, eventData) {
+    if (eventData) {
+      // Create a shallow copy to avoid mutating the original object
+      eventData = Object.assign({}, eventData)
+      eventData = this.cleanEventData(eventData)
+    }
+
     if (window.utag && typeof utag.track === 'function') {
       utag.track(eventName, eventData)
     }
@@ -823,7 +874,7 @@ class ProductHandler {
       arrays.industries.push(data.itemIndustry)
       arrays.makeIds.push(data.productOwnerId)
       arrays.msrps.push(data.itemOriginalPrice)
-      arrays.vins.push(data.vin)
+      arrays.vins.push(data.vin || "")
       arrays.externalColors.push(data.primaryColor)
 
       // Handle external branded zone sites
@@ -1277,16 +1328,10 @@ class EventHandler {
         }
       }
 
-      if (
-        updatedData &&
-        typeof utag !== 'undefined' &&
-        typeof utag.link === 'function'
-      ) {
-        utag.link(updatedData, null, [
-          function () {
-            triggerRedirect()
-          },
-        ])
+      if (updatedData) {
+        window.analyticsUtils.triggerUtagLink({}, null, updatedData, function () {
+          triggerRedirect()
+        })
       } else {
         triggerRedirect()
       }
@@ -1952,7 +1997,7 @@ class FormHandler {
 
   extractFormData(formElement) {
     const extractedData = {
-      form_element: formElement,
+      form_element: '',
     }
 
     const processAttributes = (element) => {
@@ -2091,13 +2136,7 @@ class FormHandler {
           finalInteractionData.tealium_event = 'form_interaction'
 
           // Trigger the event exactly like original
-          if (typeof utag !== 'undefined') {
-            utag.link(finalInteractionData)
-          } else {
-            console.log(
-              'Could not trigger utag.link method for form interaction.'
-            )
-          }
+          window.analyticsUtils.triggerUtagLink({}, 'form_interaction', finalInteractionData)
 
           // Remove event listeners after the first interaction (exactly like original)
           formElement.removeEventListener('input', handleFirstInteraction)
@@ -2438,6 +2477,161 @@ class FormHandler {
     }
   }
 
+  // Normalize form submission data to match legacy (old-body-output.handlebars) logic
+  normalizeFormSubmissionData(data) {
+    var form = {}
+
+    // Helper to safe unescape
+    const safeUnescape = (str) => {
+      try {
+        return unescape(str)
+      } catch (e) {
+        return str
+      }
+    }
+
+    if (
+      data.firstname ||
+      data.firstName ||
+      data.lastname ||
+      data.lastName
+    ) {
+      if (data.firstname) {
+        form.form_submission_first_name = data.firstname
+      } else if (data.firstName) {
+        form.form_submission_first_name = data.firstName
+      }
+      if (data.lastname) {
+        form.form_submission_last_name = data.lastname
+      } else if (data.lastName) {
+        form.form_submission_last_name = data.lastName
+      }
+    } else if (data.name) {
+      if (data.name.split(' ').length > 0) {
+        // logic to separate firstname and lastname in case just the "name" field exists
+        form.form_submission_first_name = safeUnescape(
+          data.name.split(' ')[0].toString()
+        )
+        var lastName = safeUnescape(
+          data.name.replace(form.form_submission_first_name, '')
+        )
+        if (lastName) {
+          form.form_submission_last_name = lastName
+        }
+      } else {
+        form.form_submission_first_name = data.name
+      }
+    } else if (data.fullname) {
+      var splittedName = data.fullname.split(' ')
+      if (splittedName.length > 0) {
+        // logic to separate firstname and lastname in case just the "fullname" field exists
+        form.form_submission_first_name = safeUnescape(
+          splittedName[0].toString()
+        )
+        var lastName = safeUnescape(
+          data.fullname.replace(form.form_submission_first_name, '')
+        )
+        if (lastName) {
+          form.form_submission_last_name = lastName
+        }
+      } else {
+        form.form_submission_first_name = data.name
+      }
+    }
+
+    if (data.email) {
+      form.form_submission_email = safeUnescape(data.email.toString())
+    } else if (data.contactEmail) {
+      form.form_submission_email = safeUnescape(data.contactEmail.toString())
+    }
+
+    if (data.phone) {
+      form.form_submission_phone_number = data.phone.toString()
+    } else if (data.phoneNumber) {
+      form.form_submission_phone_number = data.phoneNumber.toString()
+    }
+
+    if (data.address1) {
+      form.form_submission_address = data.address1.toString()
+    }
+    if (data.street1) {
+      form.form_submission_address = data.street1.toString()
+    }
+
+    if (data.city) {
+      form.form_submission_city = data.city.toString()
+    }
+
+    if (data.postalcode) {
+      form.form_submission_postal_code = data.postalcode.toString()
+    }
+    if (data.zip) {
+      form.form_submission_postal_code = data.zip.toString()
+    } else if (data.zipcode) {
+      form.form_submission_postal_code = data.zipcode.toString()
+    }
+
+    if (data.region) {
+      form.form_submission_state = data.region.toString()
+    }
+
+    if (data.tradeMake) {
+      form.form_submission_trade_in_make = safeUnescape(
+        data.tradeMake.toString()
+      )
+    }
+    if (data.tradeModel) {
+      form.form_submission_trade_in_model = safeUnescape(
+        data.tradeModel.toString()
+      )
+    }
+    if (data.tradeYear) {
+      form.form_submission_trade_in_year = data.tradeYear.toString()
+    }
+    if (data.accessories) {
+      form.form_submission_trade_in_accessories = safeUnescape(
+        data.accessories.toString()
+      )
+    }
+    if (data.usage) {
+      form.form_submission_trade_in_miles = data.usage.toString()
+    }
+
+    if (data.leadType == 'scheduletestdrive' && data.item) {
+      form.form_submission_vehicle_for_test_ride = safeUnescape(
+        data.item.toString()
+      )
+    }
+
+    if (data.SelectedServices) {
+      form.form_submission_service_required = data.SelectedServices.join()
+    }
+
+    if (data.LeadId) {
+      form.form_submission_id = data.LeadId
+    }
+
+    if (
+      data.AllLocations &&
+      data.AllLocations.length > 0 &&
+      data.SelectedLocation
+    ) {
+      const selectedLocationValue = Array.isArray(data.SelectedLocation)
+        ? data.SelectedLocation[0].value
+        : data.SelectedLocation
+      var location = data.AllLocations.find(
+        (item) => item.value == selectedLocationValue
+      )
+      if (location) {
+        form.form_submission_location_name = location.text
+      }
+    } else if (data.locationName) {
+      form.form_submission_location_name = data.locationName
+    }
+
+    return form
+  }
+
   destroy() {
     this.interactionTracked.clear()
     this.formSubmissionTracked.clear()
@@ -2693,6 +2887,9 @@ class AnalyticsManager {
 
   initialize(config) {
     console.log('Initializing Tealium Analytics Manager')
+    if (config && window.analyticsUtils) {
+      config = window.analyticsUtils.cleanEventData(config)
+    }
     this.config = config
 
     // Process configuration and create utag_data
@@ -2908,10 +3105,13 @@ class AnalyticsManager {
 
 
 
-        if (e.detail) {
-          form = Object.assign({}, form, e.detail)
-        } else if (e.detail.formData) {
-          form = Object.assign({}, form, e.detail.formData)
+        var submissionData = e.detail && e.detail.formData ? e.detail.formData : (e.detail || {});
+        form = Object.assign({}, form, submissionData);
+
+        // Normalize specific fields to legacy format
+        if (window.formHandler && window.formHandler.normalizeFormSubmissionData) {
+            var normalizedData = window.formHandler.normalizeFormSubmissionData(submissionData);
+            form = Object.assign({}, form, normalizedData);
         }
 
         // Handle specific form submission types
@@ -3104,3 +3304,4 @@ class AnalyticsManager {
     return window.formHandler.TriggerUtagFormLoad(modal)
   }
 })()
+
