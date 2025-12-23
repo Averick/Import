@@ -2860,7 +2860,6 @@ class PageHandlers {
 class AnalyticsManager {
   constructor() {
     this.initialized = false
-    this.utag_data = {}
     this.config = null
     this.domCache = {}
   }
@@ -2878,11 +2877,11 @@ class AnalyticsManager {
   }
 
   triggerUtagView(customData = {}) {
-    window.analyticsUtils.triggerUtagView(this.utag_data, customData)
+    window.analyticsUtils.triggerUtagView(window.utag_data, customData)
   }
 
   triggerUtagLink(eventType, customData = {}) {
-    window.analyticsUtils.triggerUtagLink(this.utag_data, eventType, customData)
+    window.analyticsUtils.triggerUtagLink(window.utag_data, eventType, customData)
   }
 
   initialize(config) {
@@ -2895,8 +2894,6 @@ class AnalyticsManager {
     // Process configuration and create utag_data
     this.processConfiguration()
 
-    window.utag_data = this.utag_data
-
     this.initialized = true
 
     this.initializePageHandlers()
@@ -2905,8 +2902,22 @@ class AnalyticsManager {
   }
 
   processConfiguration() {
-    // Create base utag_data from siteUser
-    this.utag_data = Object.assign({}, this.config.siteUser)
+    // Create base utag_data from siteUser, preserving any existing window.utag_data fields
+    window.utag_data = window.utag_data || {}
+    
+    // Merge siteUser into global utag_data, preserving existing values
+    // Using jQuery extend to match legacy behavior: $.extend({}, siteUser) 
+    // but here we merge INTO window.utag_data
+    if (typeof $ !== 'undefined' && $.extend) {
+        // Legacy: var utag_data = $.extend({}, siteUser);
+        // We do: $.extend(window.utag_data, siteUser, window.utag_data); 
+        // Logic: Start with siteUser, then overwrite with any existing window.utag_data values (priority to existing)
+        const existing = $.extend({}, window.utag_data);
+        $.extend(window.utag_data, this.config.siteUser, existing);
+    } else {
+        const existing = Object.assign({}, window.utag_data);
+        Object.assign(window.utag_data, this.config.siteUser, existing);
+    }
 
     // Add page-specific data
     this.addPageDataToUtag()
@@ -2918,20 +2929,20 @@ class AnalyticsManager {
   addPageDataToUtag() {
     const config = this.config
 
-    if (config.pageType) this.utag_data.page_type = config.pageType
-    if (config.pageSubType) this.utag_data.page_sub_type = config.pageSubType
-    if (config.pageBrand) this.utag_data.page_make = config.pageBrand
-    if (config.pageBrandId) this.utag_data.page_make_id = config.pageBrandId
+    if (config.pageType) window.utag_data.page_type = config.pageType
+    if (config.pageSubType) window.utag_data.page_sub_type = config.pageSubType
+    if (config.pageBrand) window.utag_data.page_make = config.pageBrand
+    if (config.pageBrandId) window.utag_data.page_make_id = config.pageBrandId
     if (config.pageBrandCategory)
-      this.utag_data.page_category = config.pageBrandCategory
+      window.utag_data.page_category = config.pageBrandCategory
     if (config.pageBrandCategoryId)
-      this.utag_data.page_category_id = config.pageBrandCategoryId
+      window.utag_data.page_category_id = config.pageBrandCategoryId
     if (config.pageBrandSubCategory)
-      this.utag_data.page_sub_category = config.pageBrandSubCategory
+      window.utag_data.page_sub_category = config.pageBrandSubCategory
     if (config.pageBrandSubCategoryId)
-      this.utag_data.page_sub_category_id = config.pageBrandSubCategoryId
+      window.utag_data.page_sub_category_id = config.pageBrandSubCategoryId
     if (config.pageMakeGroup)
-      this.utag_data.page_make_group = config.pageMakeGroup
+      window.utag_data.page_make_group = config.pageMakeGroup
   }
 
   addSearchDataToUtag() {
@@ -2943,12 +2954,12 @@ class AnalyticsManager {
     }
 
     if (config.searchKeyword)
-      this.utag_data.search_keyword = config.searchKeyword
+      window.utag_data.search_keyword = config.searchKeyword
     if (
       config.searchPageAppliedFilters &&
       config.searchPageAppliedFilters.length > 0
     ) {
-      this.utag_data.search_filters = config.searchPageAppliedFilters
+      window.utag_data.search_filters = config.searchPageAppliedFilters
     }
   }
 
@@ -2998,22 +3009,20 @@ class AnalyticsManager {
     this.executeWithErrorHandling(() => {
       if (window.productHandler) {
         window.productHandler.getProductAnalyticsData(this.config)
-        this.utag_data = $.extend({}, this.utag_data, this.config.productInfo)
+        // Merge directly into window.utag_data
+        $.extend(window.utag_data, this.config.productInfo)
       }
     }, 'Error processing product analytics:')
 
     this.executeWithErrorHandling(() => {
       if (window.productHandler) {
         window.productHandler.getPromotionAnalyticsData(this.config)
-        this.utag_data = $.extend(
-          {},
-          this.utag_data,
-          this.config.brandPromotionInfo
-        )
+        // Merge directly into window.utag_data
+        $.extend(window.utag_data, this.config.brandPromotionInfo)
       }
     }, 'Error processing promotion analytics:')
 
-    this.utag_data.podium_chatbox_active =
+    window.utag_data.podium_chatbox_active =
       this.getCachedElement("div[class*='Premium-Texting_']", 'podiumChatbox')
         .length != 0
         ? 1
@@ -3022,23 +3031,23 @@ class AnalyticsManager {
     if (
       this.getCachedElement('#pageNotFoundModal', 'pageNotFoundModal').length
     ) {
-      this.utag_data.tealium_event = 'error_view'
-      this.utag_data.site_section = 'error'
-      this.utag_data.site_sub_section = 'error'
-      this.utag_data.page_error_code = '404'
+      window.utag_data.tealium_event = 'error_view'
+      window.utag_data.site_section = 'error'
+      window.utag_data.site_sub_section = 'error'
+      window.utag_data.page_error_code = '404'
     }
 
     if (window.eventHandler) {
-      window.eventHandler.initialize(this.config, this.utag_data)
+      window.eventHandler.initialize(this.config, window.utag_data)
     }
 
     var allH1InHeader = this.getCachedElement('h1', 'h1Elements')
     if (allH1InHeader.length > 0) {
-      this.utag_data.page_h1 = allH1InHeader[0].innerText
+      window.utag_data.page_h1 = allH1InHeader[0].innerText
     }
 
     if (window.pageHandlers) {
-      window.pageHandlers.handlePageSpecificLogic(this.config, this.utag_data)
+      window.pageHandlers.handlePageSpecificLogic(this.config, window.utag_data)
     }
 
     this.executeWithErrorHandling(() => {
@@ -3046,7 +3055,7 @@ class AnalyticsManager {
     }, 'Could not load tealium script.')
 
     if (window.formHandler) {
-      window.formHandler.initialize(this.config, this.utag_data)
+      window.formHandler.initialize(this.config, window.utag_data)
     }
 
     if (
@@ -3055,9 +3064,9 @@ class AnalyticsManager {
         'newHollandCE'
       ).length > 0
     ) {
-      this.utag_data.tealium_event = 'oem_standard_branded_zone_view'
-      this.utag_data.page_make = 'new holland construction'
-      this.utag_data.page_make_group = 'new holland construction'
+      window.utag_data.tealium_event = 'oem_standard_branded_zone_view'
+      window.utag_data.page_make = 'new holland construction'
+      window.utag_data.page_make_group = 'new holland construction'
     }
 
     // Initialize custom document event listeners
@@ -3120,7 +3129,7 @@ class AnalyticsManager {
         }
 
         // Extract productDetails based on pageType
-        const pageType = this.utag_data?.page_type || 'other'
+        const pageType = window.utag_data?.page_type || 'other'
         let productDetails = {}
 
         if (pageType === 'search') {
@@ -3148,7 +3157,7 @@ class AnalyticsManager {
         }
 
         const showcaseData =
-          window.productHandler?.getShowCaseData?.(this.utag_data) || {}
+          window.productHandler?.getShowCaseData?.(window.utag_data) || {}
         const promotionData =
           window.productHandler?.getPromotionData?.(form, e.detail?.formData) ||
           {}
@@ -3162,8 +3171,8 @@ class AnalyticsManager {
           promotionData
         )
 
-        if (this.utag_data.page_h1) {
-          final.page_h1 = this.utag_data.page_h1
+        if (window.utag_data.page_h1) {
+          final.page_h1 = window.utag_data.page_h1
         }
 
         if (productDetails.product_make) {
@@ -3194,7 +3203,7 @@ class AnalyticsManager {
     })
 
     // Product details page specific handling
-    const pageType = this.utag_data?.page_type || 'other'
+    const pageType = window.utag_data?.page_type || 'other'
     if (pageType === 'product details') {
       // Check if user came from promotion link click
       if (localStorage.getItem(limitedTimeOfferBtnClicked)) {
@@ -3217,11 +3226,11 @@ class AnalyticsManager {
   // Handle limited time offer button click
   handleLimitedTimeOfferButtonClick() {
     this.executeWithErrorHandling(() => {
-      this.utag_data.tealium_event = 'did_limited_time_offer_click'
+      window.utag_data.tealium_event = 'did_limited_time_offer_click'
       window.analyticsUtils.triggerUtagLink(
         {},
         'did_limited_time_offer_click',
-        this.utag_data
+        window.utag_data
       )
     }, 'Could not trigger limited time offer click event')
   }
@@ -3246,16 +3255,16 @@ class AnalyticsManager {
       }, 'Error processing eCommerce event')
     })
 
-    window.utag_data = this.utag_data
+    // window.utag_data is already global, no need to reassign
   }
 
   handleWindowLoad() {
     const { pageType, referenceError } = this.config
 
     if (pageType === 'search' || pageType === 'product details') {
-      this.utag_data.digital_retailing_active =
+      window.utag_data.digital_retailing_active =
         document.getElementsByClassName('boatyard-btn').length > 0 ? 1 : 0
-      this.utag_data.reserve_a_unit_active =
+      window.utag_data.reserve_a_unit_active =
         document.querySelectorAll('#reserveUnitBtn').length > 0 ? 1 : 0
     }
 
@@ -3274,16 +3283,15 @@ class AnalyticsManager {
       window.formHandler.setupFormSubmissionTracking()
     }
 
-    window.utag_data = this.utag_data
+    // window.utag_data is already global
   }
 
   updateUtagData(updates) {
-    this.utag_data = $.extend({}, this.utag_data, updates)
-    window.utag_data = this.utag_data
+    $.extend(window.utag_data, updates)
   }
 
   getUtagData() {
-    return this.utag_data
+    return window.utag_data
   }
 }
 
