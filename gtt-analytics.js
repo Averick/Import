@@ -33,7 +33,7 @@ class AnalyticsUtils {
   }
 
   triggerUtagLink(utag_data, eventType = null, customData = {}, callback = null) {
-    let eventData = Object.assign({}, utag_data, customData)
+    let eventData = Object.assign({}, customData)
     if (eventType) {
       eventData.tealium_event = eventType
     }
