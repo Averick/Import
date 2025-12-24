@@ -1734,6 +1734,9 @@ class FormHandler {
   initialize(config, utag_data) {
     if (this.initialized) return
 
+    this.config = config
+    this.utag_data = utag_data
+
     // Capture the correct 'this' context for use in event handlers
     const self = this
 
@@ -1957,7 +1960,28 @@ class FormHandler {
     const productData = this.extractFormProductData(formElement)
 
     // Merge product data with form data
-    const enrichedFormData = Object.assign({}, formData, productData)
+    const enrichedFormData = Object.assign(
+      {},
+      this.config?.siteUser || {},
+      formData,
+      productData
+    )
+
+    if (this.utag_data && this.utag_data.page_h1) {
+      enrichedFormData.page_h1 = this.utag_data.page_h1
+    }
+    if (enrichedFormData.product_make) {
+      enrichedFormData.page_make = enrichedFormData.product_make.toLowerCase()
+    }
+    if (enrichedFormData.product_make_id) {
+      enrichedFormData.page_make_id = enrichedFormData.product_make_id
+    }
+    if (this.config?.pageMakeGroup) {
+      enrichedFormData.page_make_group = this.config.pageMakeGroup
+    }
+    
+    // Ensure all Oem IDs and other site user properties are present
+    // (Already covered by Object.assign with siteUser, but just to be safe if any specific logic needed)
 
     if (this.isValidForm(enrichedFormData)) {
       this.trackEvent('form_load', enrichedFormData)
@@ -2209,8 +2233,27 @@ class FormHandler {
     this.formSubmissionTracked.add(formKey)
 
     // Extract form field data
+    // Extract form field data
     const fieldData = this.extractFormFieldData(form)
-    const submissionData = { ...formData, ...fieldData }
+    const submissionData = Object.assign(
+      {},
+      this.config?.siteUser || {},
+      formData,
+      fieldData
+    )
+
+    if (this.utag_data && this.utag_data.page_h1) {
+      submissionData.page_h1 = this.utag_data.page_h1
+    }
+    if (submissionData.product_make) {
+      submissionData.page_make = submissionData.product_make.toLowerCase()
+    }
+    if (submissionData.product_make_id) {
+      submissionData.page_make_id = submissionData.product_make_id
+    }
+    if (this.config?.pageMakeGroup) {
+      submissionData.page_make_group = this.config.pageMakeGroup
+    }
 
     this.trackEvent('form_submission', submissionData)
   }
