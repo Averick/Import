@@ -1734,6 +1734,9 @@ class FormHandler {
   initialize(config, utag_data) {
     if (this.initialized) return
 
+    this.config = config
+    this.utag_data = utag_data
+
     // Capture the correct 'this' context for use in event handlers
     const self = this
 
@@ -1881,9 +1884,11 @@ class FormHandler {
       `✅ Processing static form loads for ${pageType} page (matches old template behavior)`
     )
 
-    const forms = document.querySelectorAll('.component[class*=" LeadForm_"]')
+    const forms = document.querySelectorAll(
+      '.component[class*=" LeadForm_"], .component[class*="OfferedServices_"]'
+    )
     console.log(
-      `🔍 trackStaticFormLoads called for ${pageType} page - Found ${forms.length} LeadForm components`
+      `🔍 trackStaticFormLoads called for ${pageType} page - Found ${forms.length} LeadForm/OfferedServices components`
     )
 
     forms.forEach((form) => {
@@ -1911,12 +1916,7 @@ class FormHandler {
         console.log(`⏭️ Skipping Staff form: ${formName} (ID: ${formId})`)
         return // Skip staff forms (matches old template: return true)
       }
-      if (form.closest('div[class*="OfferedServices_"]')) {
-        console.log(
-          `⏭️ Skipping OfferedServices form: ${formName} (ID: ${formId})`
-        )
-        return // Skip offered services forms (matches old template: return true)
-      }
+      // Removed exclusion for OfferedServices_ to allow tracking
       if (form.closest('div[class*="ShowcaseRoot_"]')) {
         console.log(
           `⏭️ Skipping ShowcaseRoot form: ${formName} (ID: ${formId})`
@@ -1960,7 +1960,28 @@ class FormHandler {
     const productData = this.extractFormProductData(formElement)
 
     // Merge product data with form data
-    const enrichedFormData = Object.assign({}, formData, productData)
+    const enrichedFormData = Object.assign(
+      {},
+      this.config?.siteUser || {},
+      formData,
+      productData
+    )
+
+    if (this.utag_data && this.utag_data.page_h1) {
+      enrichedFormData.page_h1 = this.utag_data.page_h1
+    }
+    if (enrichedFormData.product_make) {
+      enrichedFormData.page_make = enrichedFormData.product_make.toLowerCase()
+    }
+    if (enrichedFormData.product_make_id) {
+      enrichedFormData.page_make_id = enrichedFormData.product_make_id
+    }
+    if (this.config?.pageMakeGroup) {
+      enrichedFormData.page_make_group = this.config.pageMakeGroup
+    }
+    
+    // Ensure all Oem IDs and other site user properties are present
+    // (Already covered by Object.assign with siteUser, but just to be safe if any specific logic needed)
 
     if (this.isValidForm(enrichedFormData)) {
       this.trackEvent('form_load', enrichedFormData)
@@ -1971,8 +1992,16 @@ class FormHandler {
 
       // If no .ari-form found, construct formDetail from form data we already have
       if (!formDetail) {
-        formDetail = `form_${enrichedFormData.form_id
-          }_${enrichedFormData.form_name.replace(/\s+/g, '_')}`
+        // Fallback for Alpaca forms or others
+        const alpacaForm = formElement.querySelector('form[id^="alpaca"]')
+        if (alpacaForm) {
+          formDetail = alpacaForm.id
+        } else {
+          formDetail = `form_${enrichedFormData.form_id}_${enrichedFormData.form_name.replace(
+            /\s+/g,
+            '_'
+          )}`
+        }
       }
 
       // Use formInteraction method with the formDetail (real DOM ID or constructed identifier)
@@ -2165,13 +2194,27 @@ class FormHandler {
       formElement.addEventListener('click', handleFirstInteraction)
     } else {
       console.log(`Form with ID ${formDetail} not found.`)
+      
+      // Fallback: if we have a constructed ID and it's not found, maybe we are dealing with a direct form element
+      // Check if we can find it by other means or if the ID is actually on the form itself (which querySelector might miss if looking *inside*)
+      if (document.getElementById(formDetail)) {
+          const directForm = document.getElementById(formDetail);
+          if (directForm.tagName === 'FORM' || directForm.querySelector('form')) {
+              // Re-call logic manually or setup direct interaction
+              // Since this method relies on formElement being found, let's try to adapt
+              // If direct form is the form
+               console.log(`Found element by ID ${formDetail} directly.`);
+          }
+      }
     }
   }
 
   setupFormSubmissionListener() {
     document.addEventListener('submit', (event) => {
       const form = event.target
-      const parentComponent = form.closest('.component[class*=" LeadForm_"]')
+      const parentComponent = form.closest(
+        '.component[class*=" LeadForm_"], .component[class*="OfferedServices_"]'
+      )
 
       if (parentComponent) {
         this.handleFormSubmission(form, parentComponent)
@@ -2190,8 +2233,27 @@ class FormHandler {
     this.formSubmissionTracked.add(formKey)
 
     // Extract form field data
+    // Extract form field data
     const fieldData = this.extractFormFieldData(form)
-    const submissionData = { ...formData, ...fieldData }
+    const submissionData = Object.assign(
+      {},
+      this.config?.siteUser || {},
+      formData,
+      fieldData
+    )
+
+    if (this.utag_data && this.utag_data.page_h1) {
+      submissionData.page_h1 = this.utag_data.page_h1
+    }
+    if (submissionData.product_make) {
+      submissionData.page_make = submissionData.product_make.toLowerCase()
+    }
+    if (submissionData.product_make_id) {
+      submissionData.page_make_id = submissionData.product_make_id
+    }
+    if (this.config?.pageMakeGroup) {
+      submissionData.page_make_group = this.config.pageMakeGroup
+    }
 
     this.trackEvent('form_submission', submissionData)
   }
