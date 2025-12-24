@@ -1881,9 +1881,11 @@ class FormHandler {
       `✅ Processing static form loads for ${pageType} page (matches old template behavior)`
     )
 
-    const forms = document.querySelectorAll('.component[class*=" LeadForm_"]')
+    const forms = document.querySelectorAll(
+      '.component[class*=" LeadForm_"], .component[class*="OfferedServices_"]'
+    )
     console.log(
-      `🔍 trackStaticFormLoads called for ${pageType} page - Found ${forms.length} LeadForm components`
+      `🔍 trackStaticFormLoads called for ${pageType} page - Found ${forms.length} LeadForm/OfferedServices components`
     )
 
     forms.forEach((form) => {
@@ -1911,12 +1913,7 @@ class FormHandler {
         console.log(`⏭️ Skipping Staff form: ${formName} (ID: ${formId})`)
         return // Skip staff forms (matches old template: return true)
       }
-      if (form.closest('div[class*="OfferedServices_"]')) {
-        console.log(
-          `⏭️ Skipping OfferedServices form: ${formName} (ID: ${formId})`
-        )
-        return // Skip offered services forms (matches old template: return true)
-      }
+      // Removed exclusion for OfferedServices_ to allow tracking
       if (form.closest('div[class*="ShowcaseRoot_"]')) {
         console.log(
           `⏭️ Skipping ShowcaseRoot form: ${formName} (ID: ${formId})`
@@ -1971,8 +1968,16 @@ class FormHandler {
 
       // If no .ari-form found, construct formDetail from form data we already have
       if (!formDetail) {
-        formDetail = `form_${enrichedFormData.form_id
-          }_${enrichedFormData.form_name.replace(/\s+/g, '_')}`
+        // Fallback for Alpaca forms or others
+        const alpacaForm = formElement.querySelector('form[id^="alpaca"]')
+        if (alpacaForm) {
+          formDetail = alpacaForm.id
+        } else {
+          formDetail = `form_${enrichedFormData.form_id}_${enrichedFormData.form_name.replace(
+            /\s+/g,
+            '_'
+          )}`
+        }
       }
 
       // Use formInteraction method with the formDetail (real DOM ID or constructed identifier)
@@ -2165,13 +2170,27 @@ class FormHandler {
       formElement.addEventListener('click', handleFirstInteraction)
     } else {
       console.log(`Form with ID ${formDetail} not found.`)
+      
+      // Fallback: if we have a constructed ID and it's not found, maybe we are dealing with a direct form element
+      // Check if we can find it by other means or if the ID is actually on the form itself (which querySelector might miss if looking *inside*)
+      if (document.getElementById(formDetail)) {
+          const directForm = document.getElementById(formDetail);
+          if (directForm.tagName === 'FORM' || directForm.querySelector('form')) {
+              // Re-call logic manually or setup direct interaction
+              // Since this method relies on formElement being found, let's try to adapt
+              // If direct form is the form
+               console.log(`Found element by ID ${formDetail} directly.`);
+          }
+      }
     }
   }
 
   setupFormSubmissionListener() {
     document.addEventListener('submit', (event) => {
       const form = event.target
-      const parentComponent = form.closest('.component[class*=" LeadForm_"]')
+      const parentComponent = form.closest(
+        '.component[class*=" LeadForm_"], .component[class*="OfferedServices_"]'
+      )
 
       if (parentComponent) {
         this.handleFormSubmission(form, parentComponent)
