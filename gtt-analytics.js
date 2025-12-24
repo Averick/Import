@@ -1803,13 +1803,16 @@ class FormHandler {
           productData = window.productHandler.parseProductsData(config, item)
 
           // Cache product counts for form submission
-          if (window.productHandler && window.productHandler.loadedProductInfo) {
-            window.productHandler.loadedProductInfo.imageCount =
-              productData.product_custom_image_count
-            window.productHandler.loadedProductInfo.videoCount =
-              productData.product_videos_count
-            window.productHandler.loadedProductInfo.descriptionLength =
-              productData.product_description_char_count
+          if (
+            window.productHandler &&
+            window.productHandler.loadedProductInfo &&
+            productData.product_id
+          ) {
+            window.productHandler.loadedProductInfo[productData.product_id] = {
+              imageCount: productData.product_custom_image_count,
+              videoCount: productData.product_videos_count,
+              descriptionLength: productData.product_description_char_count,
+            }
           }
         }
 
@@ -3155,29 +3158,34 @@ class AnalyticsManager {
             }
           }
 
+          productDetails =
+            window.productHandler.parseProductsData(this.config, dataToParse) ||
+            {}
+
           // Restore cached counts from form_load (legacy behavior)
           if (
+            productDetails.product_id &&
             window.productHandler &&
-            window.productHandler.loadedProductInfo
+            window.productHandler.loadedProductInfo &&
+            window.productHandler.loadedProductInfo[productDetails.product_id]
           ) {
-            const cached = window.productHandler.loadedProductInfo
+            const cached =
+              window.productHandler.loadedProductInfo[productDetails.product_id]
+
             if (cached.imageCount !== undefined && cached.imageCount !== null) {
-              dataToParse.imageCount = cached.imageCount
+              productDetails.product_custom_image_count = cached.imageCount
             }
             if (cached.videoCount !== undefined && cached.videoCount !== null) {
-              dataToParse.videoCount = cached.videoCount
+              productDetails.product_videos_count = cached.videoCount
             }
             if (
               cached.descriptionLength !== undefined &&
               cached.descriptionLength !== null
             ) {
-              dataToParse.descriptionLength = cached.descriptionLength
+              productDetails.product_description_char_count =
+                cached.descriptionLength
             }
           }
-
-          productDetails =
-            window.productHandler.parseProductsData(this.config, dataToParse) ||
-            {}
         } else if (pageType === 'finance') {
           if (
             window.productHandler &&
