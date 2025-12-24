@@ -594,6 +594,7 @@ class ProductHandler {
       spin360: null,
       financingAnchor: null,
     }
+    this.loadedProductInfo = {}
   }
 
   parseJsonElement(elementId) {
@@ -1800,6 +1801,16 @@ class FormHandler {
           typeof window.productHandler.parseProductsData === 'function'
         ) {
           productData = window.productHandler.parseProductsData(config, item)
+
+          // Cache product counts for form submission
+          if (window.productHandler && window.productHandler.loadedProductInfo) {
+            window.productHandler.loadedProductInfo.imageCount =
+              productData.product_custom_image_count
+            window.productHandler.loadedProductInfo.videoCount =
+              productData.product_videos_count
+            window.productHandler.loadedProductInfo.descriptionLength =
+              productData.product_description_char_count
+          }
         }
 
         form.form_name = item.formName
@@ -3133,49 +3144,40 @@ class AnalyticsManager {
         let productDetails = {}
 
         if (pageType === 'search') {
-          let dataToParse = e.detail
-          if (e.detail && e.detail.formData && !e.detail.productId) {
-            dataToParse = e.detail.formData
-          }
+          let dataToParse = {}
 
-          productDetails = window.productHandler.parseProductsData(
-            this.config,
-            dataToParse
-          ) || {}
-
-          if (
-            productDetails.product_id &&
-            window.productHandler &&
-            window.productHandler.extractProductItems
-          ) {
-            try {
-              const allItems = window.productHandler.extractProductItems(
-                this.config
-              )
-              const matchingItem = allItems.find(
-                (item) =>
-                  item.productId == productDetails.product_id ||
-                  item.productExternalId == productDetails.product_id
-              )
-
-              if (matchingItem) {
-                const enrichedDetails = window.productHandler.parseProductsData(
-                  this.config,
-                  matchingItem
-                )
-                productDetails = Object.assign(
-                  {},
-                  productDetails,
-                  enrichedDetails
-                )
-              }
-            } catch (error) {
-              console.warn(
-                'Error enriching product details for search page form submission:',
-                error
-              )
+          // Safely extract data from e.detail
+          if (e.detail) {
+            if (e.detail.formData && !e.detail.productId) {
+              dataToParse = Object.assign({}, e.detail.formData)
+            } else {
+              dataToParse = Object.assign({}, e.detail)
             }
           }
+
+          // Restore cached counts from form_load (legacy behavior)
+          if (
+            window.productHandler &&
+            window.productHandler.loadedProductInfo
+          ) {
+            const cached = window.productHandler.loadedProductInfo
+            if (cached.imageCount !== undefined && cached.imageCount !== null) {
+              dataToParse.imageCount = cached.imageCount
+            }
+            if (cached.videoCount !== undefined && cached.videoCount !== null) {
+              dataToParse.videoCount = cached.videoCount
+            }
+            if (
+              cached.descriptionLength !== undefined &&
+              cached.descriptionLength !== null
+            ) {
+              dataToParse.descriptionLength = cached.descriptionLength
+            }
+          }
+
+          productDetails =
+            window.productHandler.parseProductsData(this.config, dataToParse) ||
+            {}
         } else if (pageType === 'finance') {
           if (
             window.productHandler &&
