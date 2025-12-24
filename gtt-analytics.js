@@ -3133,16 +3133,48 @@ class AnalyticsManager {
         let productDetails = {}
 
         if (pageType === 'search') {
-          if (e.detail) {
-            productDetails = window.productHandler.parseProductsData(
-              this.config,
-              e.detail
-            ) || {}
-          } else if (e.detail.formData) {
-            productDetails = window.productHandler.parseProductsData(
-              this.config,
-              e.detail.formData
-            ) || {}
+          let dataToParse = e.detail
+          if (e.detail && e.detail.formData && !e.detail.productId) {
+            dataToParse = e.detail.formData
+          }
+
+          productDetails = window.productHandler.parseProductsData(
+            this.config,
+            dataToParse
+          ) || {}
+
+          if (
+            productDetails.product_id &&
+            window.productHandler &&
+            window.productHandler.extractProductItems
+          ) {
+            try {
+              const allItems = window.productHandler.extractProductItems(
+                this.config
+              )
+              const matchingItem = allItems.find(
+                (item) =>
+                  item.productId == productDetails.product_id ||
+                  item.productExternalId == productDetails.product_id
+              )
+
+              if (matchingItem) {
+                const enrichedDetails = window.productHandler.parseProductsData(
+                  this.config,
+                  matchingItem
+                )
+                productDetails = Object.assign(
+                  {},
+                  productDetails,
+                  enrichedDetails
+                )
+              }
+            } catch (error) {
+              console.warn(
+                'Error enriching product details for search page form submission:',
+                error
+              )
+            }
           }
         } else if (pageType === 'finance') {
           if (
