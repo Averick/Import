@@ -22,6 +22,12 @@ class AnalyticsUtils {
 
   // Tealium utilities
   triggerUtagView(utag_data, customData = {}) {
+    // Check if there is a pending promo click event that needs to be fired first
+    if (sessionStorage.getItem('ari_pending_promo_click')) {
+        console.log('Suppressing view event due to pending promo click')
+        return
+    }
+
     let eventData = Object.assign({}, utag_data, customData)
     eventData = this.convertToSnakeCaseKeys(eventData)
     eventData = this.cleanEventData(eventData)
@@ -1165,18 +1171,9 @@ class EventHandler {
     if (this.initialized) return
 
 
-    // Attempt to suppress automatic initial view to control ordering
-    if (typeof utag === 'undefined') {
-        window.utag_cfg_ovrd = window.utag_cfg_ovrd || {}
-        window.utag_cfg_ovrd.noview = true
-        // Also try setting it in utag_data as some setups check there
-        window.utag_data = window.utag_data || {}
-        window.utag_data.noview = true
-    }
-
     const pendingPromoClick = sessionStorage.getItem('ari_pending_promo_click')
     
-    // Logic to handle initial events (Link + View or Just View)
+    // Logic to handle initial events (Link + View)
     const handleInitialEvents = () => {
          if (typeof utag !== 'undefined') {
              // 1. Process pending click if exists
@@ -1189,20 +1186,11 @@ class EventHandler {
                  } finally {
                      sessionStorage.removeItem('ari_pending_promo_click')
                  }
-             }
-
-             // 2. Trigger the page view if we suppressed the automatic one
-             // We assume if we set noview, we MUST fire view manually.
-             // If utag was already defined (we didn't set noview), view happened.
-             // But here we are in the 'wait' loop or 'immediate' check.
-             
-             // Check if we effectively suppressed it:
-             if (window.utag_cfg_ovrd && window.utag_cfg_ovrd.noview) {
+                 
+                 // 2. Fire the view manually now that we are done with the click
+                 // Since we cleared the session storage, this call will NOT be blocked by triggerUtagView logic
                  this.triggerUtagView(window.utag_data)
-                 // Do not reset noview to false immediately, to ensure it suppresses the auto-view
-                 // window.utag_cfg_ovrd.noview = false
              }
-
          } else {
              // Wait for utag to load if utag is not loaded yet
              setTimeout(handleInitialEvents, 50)
