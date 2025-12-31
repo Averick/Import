@@ -3059,16 +3059,8 @@ class AnalyticsManager {
   }
 
   processConfiguration() {
-    // Create base utag_data from siteUser, preserving any existing window.utag_data fields
-    window.utag_data = window.utag_data || {}
     
-    // Merge siteUser into global utag_data, preserving existing values
-    // Using jQuery extend to match legacy behavior: $.extend({}, siteUser) 
-    // but here we merge INTO window.utag_data
     if (typeof $ !== 'undefined' && $.extend) {
-        // Legacy: var utag_data = $.extend({}, siteUser);
-        // We do: $.extend(window.utag_data, siteUser, window.utag_data); 
-        // Logic: Start with siteUser, then overwrite with any existing window.utag_data values (priority to existing)
         const existing = $.extend({}, window.utag_data);
         $.extend(window.utag_data, this.config.siteUser, existing);
     } else {
@@ -3076,11 +3068,13 @@ class AnalyticsManager {
         Object.assign(window.utag_data, this.config.siteUser, existing);
     }
 
-    // Add page-specific data
     this.addPageDataToUtag()
 
-    // Add search data if applicable
     this.addSearchDataToUtag()
+
+    if (window.analyticsUtils) {
+      window.utag_data = window.analyticsUtils.cleanEventData(window.utag_data)
+    }
   }
 
   addPageDataToUtag() {
