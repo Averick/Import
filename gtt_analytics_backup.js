@@ -1884,11 +1884,23 @@ class FormHandler {
       `✅ Processing static form loads for ${pageType} page (matches old template behavior)`
     )
 
-    const forms = document.querySelectorAll(
-      '.component[class*=" LeadForm_"], .component[class*="OfferedServices_"]'
+    let forms = Array.from(
+      document.querySelectorAll(
+        '.component[class*=" LeadForm_"], .component[class*="OfferedServices_"]'
+      )
     )
+
+    // Filter out components that contain other selected components (prevent duplicates for nested forms)
+    // If A contains B, we only want to track B (the inner/more specific one)
+    forms = forms.filter((formA) => {
+      const containsAnother = forms.some(
+        (formB) => formB !== formA && formA.contains(formB)
+      )
+      return !containsAnother
+    })
+
     console.log(
-      `🔍 trackStaticFormLoads called for ${pageType} page - Found ${forms.length} LeadForm/OfferedServices components`
+      `🔍 trackStaticFormLoads called for ${pageType} page - Found ${forms.length} unique LeadForm/OfferedServices components`
     )
 
     forms.forEach((form) => {
@@ -3416,3 +3428,4 @@ class AnalyticsManager {
     return window.formHandler.TriggerUtagFormLoad(modal)
   }
 })()
+
