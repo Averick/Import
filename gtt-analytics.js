@@ -2084,7 +2084,8 @@ class FormHandler {
       {},
       this.config?.siteUser || {},
       formData,
-      productData
+      productData,
+      window.productHandler?.getShowCaseData(this.utag_data) || {}
     )
 
     if (this.utag_data && this.utag_data.page_h1) {
