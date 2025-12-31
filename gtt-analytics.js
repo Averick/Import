@@ -1140,7 +1140,10 @@ class ProductHandler {
     try {
       const queryString = window.location.search
       if (queryString && window.analyticsUtils) {
-        return window.analyticsUtils.QueryStringToJSON() || {}
+        const rawData = window.analyticsUtils.QueryStringToJSON() || {}
+        if (rawData.productId) {
+          return this.parseProductsData(window.TealiumConfig || {}, rawData)
+        }
       }
     } catch (error) {
       console.warn('Failed to parse query string for product data:', error)
