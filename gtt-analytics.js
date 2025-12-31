@@ -1159,10 +1159,20 @@ class EventHandler {
   initialize(config) {
     if (this.initialized) return
 
+
+    // Attempt to suppress automatic initial view to control ordering
+    if (typeof utag === 'undefined') {
+        window.utag_cfg_ovrd = window.utag_cfg_ovrd || {}
+        window.utag_cfg_ovrd.noview = true
+    }
+
     const pendingPromoClick = sessionStorage.getItem('ari_pending_promo_click')
-    if (pendingPromoClick) {
-         const firePendingEvent = () => {
-             if (typeof utag !== 'undefined') {
+    
+    // Logic to handle initial events (Link + View or Just View)
+    const handleInitialEvents = () => {
+         if (typeof utag !== 'undefined') {
+             // 1. Process pending click if exists
+             if (pendingPromoClick) {
                  try {
                      const pendingData = JSON.parse(pendingPromoClick)
                      this.triggerUtagLink(pendingData)
@@ -1171,13 +1181,27 @@ class EventHandler {
                  } finally {
                      sessionStorage.removeItem('ari_pending_promo_click')
                  }
-             } else {
-                 // Wait for utag to load if utag is not loaded yet
-                 setTimeout(firePendingEvent, 200)
              }
+
+             // 2. Trigger the page view if we suppressed the automatic one
+             // We assume if we set noview, we MUST fire view manually.
+             // If utag was already defined (we didn't set noview), view happened.
+             // But here we are in the 'wait' loop or 'immediate' check.
+             
+             // Check if we effectively suppressed it:
+             if (window.utag_cfg_ovrd && window.utag_cfg_ovrd.noview) {
+                 this.triggerUtagView(window.utag_data)
+                 window.utag_cfg_ovrd.noview = false
+             }
+
+         } else {
+             // Wait for utag to load if utag is not loaded yet
+             setTimeout(handleInitialEvents, 50)
          }
-         firePendingEvent()
     }
+    
+    handleInitialEvents()
+
 
     const handleGoogleMapClick = (event) => {
       window.utag_data.tealium_event = 'google_map_click'
