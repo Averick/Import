@@ -1148,7 +1148,12 @@ class EventHandler {
     this.initialized = false
   }
 
+  triggerUtagView(eventData) {
+    window.analyticsUtils.triggerUtagView(eventData)
+  }
+
   triggerUtagLink(eventData, callback) {
+
     window.analyticsUtils.triggerUtagLink({}, null, eventData, callback)
   }
 
