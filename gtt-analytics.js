@@ -1169,6 +1169,9 @@ class EventHandler {
     if (typeof utag === 'undefined') {
         window.utag_cfg_ovrd = window.utag_cfg_ovrd || {}
         window.utag_cfg_ovrd.noview = true
+        // Also try setting it in utag_data as some setups check there
+        window.utag_data = window.utag_data || {}
+        window.utag_data.noview = true
     }
 
     const pendingPromoClick = sessionStorage.getItem('ari_pending_promo_click')
@@ -1197,6 +1200,7 @@ class EventHandler {
              if (window.utag_cfg_ovrd && window.utag_cfg_ovrd.noview) {
                  this.triggerUtagView(window.utag_data)
                  window.utag_cfg_ovrd.noview = false
+                 if (window.utag_data) window.utag_data.noview = false
              }
 
          } else {
