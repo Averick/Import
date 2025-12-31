@@ -1198,7 +1198,8 @@ class EventHandler {
              
              // Check if we effectively suppressed it:
              if (window.utag_cfg_ovrd && window.utag_cfg_ovrd.noview) {
-                 this.triggerUtagView(window.utag_data)
+                 // We rely on the automatic view firing eventually or being triggered by other scripts
+                 // Removing manual trigger to avoid duplication
                  window.utag_cfg_ovrd.noview = false
                  if (window.utag_data) window.utag_data.noview = false
              }
