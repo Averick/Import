@@ -1159,14 +1159,27 @@ class EventHandler {
   initialize(config) {
     if (this.initialized) return
 
+    const pendingPromoClick = sessionStorage.getItem('ari_pending_promo_click')
+    if (pendingPromoClick) {
+         try {
+             const pendingData = JSON.parse(pendingPromoClick)
+             this.triggerUtagLink(pendingData)
+         } catch(e) {
+             console.error('Error firing pending promo click event', e)
+         } finally {
+             sessionStorage.removeItem('ari_pending_promo_click')
+         }
+    }
+
     const handleGoogleMapClick = (event) => {
       window.utag_data.tealium_event = 'google_map_click'
       this.triggerUtagLink({ tealium_event: 'google_map_click' })
     }
 
     const handlePromoClick = (event, matchingElement) => {
-      event.preventDefault()
-      const targetHref = matchingElement.getAttribute('href')
+      // Remove preventDefault to allow natural navigation
+      // event.preventDefault()
+      // const targetHref = matchingElement.getAttribute('href')
 
       var clickedPromotionDetails = matchingElement.querySelector('script')
       
@@ -1175,24 +1188,14 @@ class EventHandler {
          clickedPromotionDetails = matchingElement.parentElement.querySelector('script')
       }
 
+      const promotionData = {}
+
       if (clickedPromotionDetails) {
         try {
           var promotionDataSource = JSON.parse(
             clickedPromotionDetails.innerHTML.replace(/&quot;/g, '"')
           )
-          if (promotionDataSource.promotionId) {
-            window.utag_data.promotion_id = promotionDataSource.promotionId
-            window.utag_data.promotion_name = promotionDataSource.promotionName
-          }
-          if (promotionDataSource.promotionMakeId) {
-            window.utag_data.promotion_make_id = promotionDataSource.promotionMakeId
-            window.utag_data.promotion_make = promotionDataSource.promotionMake
-          }
-          if (promotionDataSource.promotionCategoryId) {
-            window.utag_data.promotion_category = promotionDataSource.promotionCategory
-            window.utag_data.promotion_category_id =
-              promotionDataSource.promotionCategoryId
-          }
+          Object.assign(promotionData, promotionDataSource)
         } catch (e) {
           console.error('Error parsing promotion details JSON', e)
         }
@@ -1203,7 +1206,7 @@ class EventHandler {
             if (href && href.includes('/factory-promotions/')) {
                  const potentialId = href.split('/').pop();
                  if (potentialId && /^\d+$/.test(potentialId)) {
-                     window.utag_data.promotion_id = potentialId;
+                     promotionData.promotionId = potentialId;
                  }
             }
         } catch(e) {
@@ -1211,19 +1214,23 @@ class EventHandler {
         }
       }
 
-      window.utag_data.site_section = 'promo'
-      window.utag_data.site_sub_section = 'promo_detail'
-      window.utag_data.tealium_event = 'promo_click'
-
-      // Use a fixed timeout navigation to ensure event firing
-      // We do not rely on callback from utag because it might be unreliable or synchronous
-      if (targetHref) {
-           setTimeout(() => {
-               window.location.href = targetHref
-           }, 400)
+      
+      // Store event data for next page flow
+      const promoEventData = {
+          site_section: 'promo',
+          site_sub_section: 'promo_detail',
+          tealium_event: 'promo_click'
       }
 
-      this.triggerUtagLink(window.utag_data)
+      if (promotionData.promotionId) promoEventData.promotion_id = promotionData.promotionId
+      if (promotionData.promotionName) promoEventData.promotion_name = promotionData.promotionName
+      if (promotionData.promotionMakeId) promoEventData.promotion_make_id = promotionData.promotionMakeId
+      if (promotionData.promotionMake) promoEventData.promotion_make = promotionData.promotionMake
+      if (promotionData.promotionCategory) promoEventData.promotion_category = promotionData.promotionCategory
+      if (promotionData.promotionCategoryId) promoEventData.promotion_category_id = promotionData.promotionCategoryId
+      
+      sessionStorage.setItem('ari_pending_promo_click', JSON.stringify(promoEventData))
+
     }
 
     const handleCarouselClick = (event, matchingElement) => {
