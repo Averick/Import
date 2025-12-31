@@ -1205,17 +1205,12 @@ class EventHandler {
 
     const handleGoogleMapClick = (event) => {
       window.utag_data.tealium_event = 'google_map_click'
-      this.triggerUtagLink({ tealium_event: 'google_map_click' })
+      this.triggerUtagLink(Object.assign({}, window.utag_data))
     }
 
     const handlePromoClick = (event, matchingElement) => {
-      // Remove preventDefault to allow natural navigation
-      // event.preventDefault()
-      // const targetHref = matchingElement.getAttribute('href')
-
       var clickedPromotionDetails = matchingElement.querySelector('script')
       
-      // Fallback: look for script in the parent container (if button is <a>)
       if (!clickedPromotionDetails && matchingElement.parentElement) {
          clickedPromotionDetails = matchingElement.parentElement.querySelector('script')
       }
