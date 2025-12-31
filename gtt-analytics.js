@@ -884,11 +884,10 @@ class ProductHandler {
   extractProductItems(config) {
     const productItems = []
     const productItemFields = ProductHandler.PRODUCT_FIELDS
-    const self = this // Store reference to the class instance
+    const self = this
 
     $('span.datasource.hidden').each(function () {
       try {
-        // 'this' here refers to the DOM element (span)
         const elementText = this.innerText || this.textContent
 
         if (!elementText || elementText.trim() === '') {
@@ -898,7 +897,6 @@ class ProductHandler {
 
         const data = JSON.parse(elementText)
 
-        // Use 'self' to call the class method
         if (self.isValidProductData(data, productItemFields)) {
           productItems.push(data)
         }
@@ -1973,22 +1971,13 @@ class FormHandler {
     // Check page type from utag_data to determine if we should process static forms
     const pageType = window.utag_data?.page_type || 'other'
 
-    console.log(
-      `🔍 Page type: ${pageType} - Checking if static form loads should be tracked`
-    )
-
     // Skip static form processing for search and product details pages
     // Forms on these pages should only trigger when modals are opened
     if (pageType === 'search' || pageType === 'product details') {
-      console.log(
-        `⏭️ Skipping static form loads on ${pageType} page - forms will only trigger when modals are opened`
-      )
       return
     }
 
-    console.log(
-      `✅ Processing static form loads for ${pageType} page (matches old template behavior)`
-    )
+
 
     let forms = Array.from(
       document.querySelectorAll(
@@ -2005,9 +1994,7 @@ class FormHandler {
       return !containsAnother
     })
 
-    console.log(
-      `🔍 trackStaticFormLoads called for ${pageType} page - Found ${forms.length} unique LeadForm/OfferedServices components`
-    )
+
 
     forms.forEach((form) => {
       // Create unique identifier for this form to prevent duplicates
@@ -2023,49 +2010,31 @@ class FormHandler {
 
       // Skip if already tracked
       if (this.formLoadTracked.has(formKey)) {
-        console.log(
-          `⏭️ Skipping already tracked form: ${formName} (ID: ${formId})`
-        )
         return
       }
 
       // Follow EXACT exclusion logic from old template (return true = skip)
       if (form.closest('div[class*="Staff_"]')) {
-        console.log(`⏭️ Skipping Staff form: ${formName} (ID: ${formId})`)
         return // Skip staff forms (matches old template: return true)
       }
       // Removed exclusion for OfferedServices_ to allow tracking
       if (form.closest('div[class*="ShowcaseRoot_"]')) {
-        console.log(
-          `⏭️ Skipping ShowcaseRoot form: ${formName} (ID: ${formId})`
-        )
         return // Skip showcase forms (matches old template: return true)
       }
       if (form.closest('div[class*="VDP-Unit-Detail_"]')) {
-        console.log(
-          `⏭️ Skipping VDP-Unit-Detail form: ${formName} (ID: ${formId})`
-        )
         return // Skip VDP unit detail forms (matches old template: return true)
       }
       if (form.closest('div[class*="SearchRoot_"]')) {
-        console.log(`⏭️ Skipping SearchRoot form: ${formName} (ID: ${formId})`)
         return // Skip search forms (matches old template: return true)
       }
 
       // Skip "Can't Find What You're Looking For?" form on desktop (exact logic from old template)
       if (formId == 1461 && screen.width >= 768) {
-        console.log(
-          `⏭️ Skipping Can't Find form (desktop): ${formName} (ID: ${formId})`
-        )
         return // Skip desktop "Can't Find" form (matches old template: return true)
       }
 
       // Mark as tracked BEFORE processing to prevent duplicates
       this.formLoadTracked.add(formKey)
-
-      console.log(
-        `🔍 Processing static form_load for: ${formName} (ID: ${formId}) - Key: ${formKey}`
-      )
 
       this.processFormLoad(form)
     })
@@ -2277,21 +2246,17 @@ class FormHandler {
 
   // Add formInteraction method to match original API exactly
   formInteraction(final, formDetail, optionalParam = '') {
-    console.log('formInteraction called with:', { final, formDetail })
-
     // Find the actual form element inside the modal (exactly like original)
     const formElement = document.querySelector(
       '#' + formDetail + ' form' + optionalParam
     )
 
     if (formElement) {
-      console.log(`Form with ID found, attaching event listeners.`)
       const formKey = this.getFormKey(final)
 
       // Function to handle first interaction (exactly like original)
       const handleFirstInteraction = () => {
         if (!this.interactionTracked.has(formKey)) {
-          console.log('Tracking form interaction for:', formKey)
           this.interactionTracked.add(formKey)
 
           var finalInteractionData = Object.assign({}, final)
@@ -2312,8 +2277,6 @@ class FormHandler {
       formElement.addEventListener('focus', handleFirstInteraction)
       formElement.addEventListener('click', handleFirstInteraction)
     } else {
-      console.log(`Form with ID ${formDetail} not found.`)
-      
       // Fallback: if we have a constructed ID and it's not found, maybe we are dealing with a direct form element
       // Check if we can find it by other means or if the ID is actually on the form itself (which querySelector might miss if looking *inside*)
       if (document.getElementById(formDetail)) {
@@ -2322,7 +2285,6 @@ class FormHandler {
               // Re-call logic manually or setup direct interaction
               // Since this method relies on formElement being found, let's try to adapt
               // If direct form is the form
-               console.log(`Found element by ID ${formDetail} directly.`);
           }
       }
     }
@@ -3124,8 +3086,14 @@ class AnalyticsManager {
   addPageDataToUtag() {
     const config = this.config
 
-    if (config.pageType) window.utag_data.page_type = config.pageType
-    if (config.pageSubType) window.utag_data.page_sub_type = config.pageSubType
+    if (config.pageType) {
+      window.utag_data.page_type = config.pageType
+      window.utag_data.site_section = config.pageType
+    }
+    if (config.pageSubType) {
+      window.utag_data.page_sub_type = config.pageSubType
+      window.utag_data.site_sub_section = config.pageSubType
+    }
     if (config.pageBrand) window.utag_data.page_make = config.pageBrand
     if (config.pageBrandId) window.utag_data.page_make_id = config.pageBrandId
     if (config.pageBrandCategory)
@@ -3478,7 +3446,7 @@ class AnalyticsManager {
       }, 'Error processing eCommerce event')
     })
 
-    // window.utag_data is already global, no need to reassign
+
   }
 
   handleWindowLoad() {
@@ -3506,7 +3474,7 @@ class AnalyticsManager {
       window.formHandler.setupFormSubmissionTracking()
     }
 
-    // window.utag_data is already global
+
   }
 
   updateUtagData(updates) {
