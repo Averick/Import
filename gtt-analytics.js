@@ -1245,11 +1245,11 @@ class EventHandler {
 
       
       // Store event data for next page flow
-      const promoEventData = {
+      const promoEventData = Object.assign({}, window.utag_data || {}, {
           site_section: 'promo',
           site_sub_section: 'promo_detail',
           tealium_event: 'promo_click'
-      }
+      })
 
       if (promotionData.promotionId) promoEventData.promotion_id = promotionData.promotionId
       if (promotionData.promotionName) promoEventData.promotion_name = promotionData.promotionName
