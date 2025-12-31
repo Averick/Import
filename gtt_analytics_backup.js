@@ -1166,31 +1166,45 @@ class EventHandler {
 
     const handlePromoClick = (event, matchingElement) => {
       var clickedPromotionDetails = matchingElement.querySelector('script')
+      
+      // Fallback: look for script in the parent container (if button is <a>)
+      if (!clickedPromotionDetails && matchingElement.parentElement) {
+         clickedPromotionDetails = matchingElement.parentElement.querySelector('script')
+      }
 
       if (clickedPromotionDetails) {
         try {
-          var clickedPromotionDetailsJson = JSON.parse(
-            clickedPromotionDetails.innerHTML
+          var promotionDataSource = JSON.parse(
+            clickedPromotionDetails.innerHTML.replace(/&quot;/g, '"')
           )
-          utag_data.promotion_id = clickedPromotionDetailsJson.id
-          utag_data.promotion_name = clickedPromotionDetailsJson.name
-          utag_data.promotion_creative = clickedPromotionDetailsJson.creative
-          utag_data.promotion_category = clickedPromotionDetailsJson.category
-          utag_data.promotion_position = clickedPromotionDetailsJson.position
-          utag_data.promotion_discount = clickedPromotionDetailsJson.discount
-          utag_data.promotion_discount_type =
-            clickedPromotionDetailsJson.discount_type
-          utag_data.promotion_start_date =
-            clickedPromotionDetailsJson.start_date
-          utag_data.promotion_end_date = clickedPromotionDetailsJson.end_date
-          utag_data.promotion_disclaimer =
-            clickedPromotionDetailsJson.disclaimer
-          utag_data.promotion_external_url =
-            clickedPromotionDetailsJson.external_url
-          utag_data.promotion_internal_url =
-            clickedPromotionDetailsJson.internal_url
+          if (promotionDataSource.promotionId) {
+            utag_data.promotion_id = promotionDataSource.promotionId
+            utag_data.promotion_name = promotionDataSource.promotionName
+          }
+          if (promotionDataSource.promotionMakeId) {
+            utag_data.promotion_make_id = promotionDataSource.promotionMakeId
+            utag_data.promotion_make = promotionDataSource.promotionMake
+          }
+          if (promotionDataSource.promotionCategoryId) {
+            utag_data.promotion_category = promotionDataSource.promotionCategory
+            utag_data.promotion_category_id =
+              promotionDataSource.promotionCategoryId
+          }
         } catch (e) {
-          console.log('Error parsing promotion details JSON', e)
+          console.error('Error parsing promotion details JSON', e)
+        }
+      } else {
+        // Fallback: Try to extract ID from URL if script data is missing
+        try {
+            const href = matchingElement.getAttribute('href');
+            if (href && href.includes('/factory-promotions/')) {
+                 const potentialId = href.split('/').pop();
+                 if (potentialId && /^\d+$/.test(potentialId)) {
+                     utag_data.promotion_id = potentialId;
+                 }
+            }
+        } catch(e) {
+            console.error('Error extracting promotion ID from URL', e);
         }
       }
 
@@ -1238,7 +1252,7 @@ class EventHandler {
         handler: handleGoogleMapClick,
       },
       {
-        selector: '.click-promotion-details',
+        selector: 'a[href*="/factory-promotions/"]',
         handler: handlePromoClick,
       },
       {
@@ -3475,3 +3489,4 @@ class AnalyticsManager {
     return window.formHandler.TriggerUtagFormLoad(modal)
   }
 })()
+
