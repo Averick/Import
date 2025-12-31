@@ -1148,15 +1148,15 @@ class EventHandler {
     this.initialized = false
   }
 
-  triggerUtagLink(eventData) {
-    window.analyticsUtils.triggerUtagLink({}, null, eventData)
+  triggerUtagLink(eventData, callback) {
+    window.analyticsUtils.triggerUtagLink({}, null, eventData, callback)
   }
 
   triggerUtagTrack(eventName, eventData) {
     window.analyticsUtils.triggerUtagTrack(eventName, eventData)
   }
 
-  initialize(config, utag_data) {
+  initialize(config) {
     if (this.initialized) return
 
     const handleGoogleMapClick = (event) => {
@@ -1165,6 +1165,9 @@ class EventHandler {
     }
 
     const handlePromoClick = (event, matchingElement) => {
+      event.preventDefault()
+      const targetHref = matchingElement.getAttribute('href')
+
       var clickedPromotionDetails = matchingElement.querySelector('script')
       
       // Fallback: look for script in the parent container (if button is <a>)
@@ -1212,7 +1215,20 @@ class EventHandler {
       utag_data.site_sub_section = 'promo_detail'
       utag_data.tealium_event = 'promo_click'
 
-      this.triggerUtagLink(utag_data)
+      const navigate = () => {
+        if (targetHref) {
+          window.location.href = targetHref
+        }
+      }
+
+      const timeoutId = setTimeout(navigate, 500)
+
+      const callback = () => {
+        clearTimeout(timeoutId)
+        navigate()
+      }
+
+      this.triggerUtagLink(utag_data, callback)
     }
 
     const handleCarouselClick = (event, matchingElement) => {
@@ -1323,7 +1339,7 @@ class EventHandler {
     this.setupEcommerceEventHandlers()
 
     window.addEventListener('load', () => {
-      this.initializeBRPEvents(config, utag_data)
+      this.initializeBRPEvents(config, window.utag_data)
     })
 
     this.initialized = true
