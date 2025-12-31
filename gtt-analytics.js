@@ -66,9 +66,11 @@ class AnalyticsUtils {
       if (specialMappings[key]) {
         newKey = specialMappings[key]
       } else {
-        newKey = key
-          .replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)
-          .replace(/^_/, '')
+        newKey = key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)
+
+        if (!key.startsWith('_') && newKey.startsWith('_')) {
+          newKey = newKey.substring(1)
+        }
       }
 
       newObj[newKey] = obj[key]
@@ -87,6 +89,8 @@ class AnalyticsUtils {
         .filter((item) => item !== null && item !== '' && item !== undefined)
     }
 
+    obj = this.removeDuplicateKeys(obj)
+
     if (obj['lead_type']) {
       obj['form_type'] = obj['lead_type']
     }
@@ -100,6 +104,49 @@ class AnalyticsUtils {
         obj[key] = this.cleanEventData(value)
       }
     })
+    return obj
+  }
+
+  removeDuplicateKeys(obj) {
+    if (typeof obj !== 'object' || obj === null || Array.isArray(obj)) {
+      return obj
+    }
+
+    const normalizedKeys = {}
+
+    Object.keys(obj).forEach((key) => {
+      const normalized = key.replace(/_/g, '').toLowerCase()
+
+      if (normalizedKeys[normalized]) {
+        const existingKey = normalizedKeys[normalized]
+        const existingHasLeading = existingKey.startsWith('_')
+        const currentHasLeading = key.startsWith('_')
+        let shouldKeepCurrent = false
+
+        if (currentHasLeading && !existingHasLeading) {
+          shouldKeepCurrent = true
+        } else if (existingHasLeading && !currentHasLeading) {
+          shouldKeepCurrent = false
+        } else {
+          const existingUnderscores = (existingKey.match(/_/g) || []).length
+          const currentUnderscores = (key.match(/_/g) || []).length
+
+          if (currentUnderscores > existingUnderscores) {
+            shouldKeepCurrent = true
+          }
+        }
+
+        if (shouldKeepCurrent) {
+          delete obj[existingKey]
+          normalizedKeys[normalized] = key
+        } else {
+          delete obj[key]
+        }
+      } else {
+        normalizedKeys[normalized] = key
+      }
+    })
+
     return obj
   }
 
