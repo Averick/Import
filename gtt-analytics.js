@@ -3086,13 +3086,16 @@ class AnalyticsManager {
   addPageDataToUtag() {
     const config = this.config
 
-    if (config.pageType) {
-      window.utag_data.page_type = config.pageType
-      window.utag_data.site_section = config.pageType
+    const pageType = config.pageType || config.page_type
+    const pageSubType = config.pageSubType || config.page_sub_type || config.page_subtype
+
+    if (pageType) {
+      window.utag_data.page_type = pageType
+      window.utag_data.site_section = pageType
     }
-    if (config.pageSubType) {
-      window.utag_data.page_sub_type = config.pageSubType
-      window.utag_data.site_sub_section = config.pageSubType
+    if (pageSubType) {
+      window.utag_data.page_sub_type = pageSubType
+      window.utag_data.site_sub_section = pageSubType
     }
     if (config.pageBrand) window.utag_data.page_make = config.pageBrand
     if (config.pageBrandId) window.utag_data.page_make_id = config.pageBrandId
