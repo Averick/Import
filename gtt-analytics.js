@@ -1161,14 +1161,22 @@ class EventHandler {
 
     const pendingPromoClick = sessionStorage.getItem('ari_pending_promo_click')
     if (pendingPromoClick) {
-         try {
-             const pendingData = JSON.parse(pendingPromoClick)
-             this.triggerUtagLink(pendingData)
-         } catch(e) {
-             console.error('Error firing pending promo click event', e)
-         } finally {
-             sessionStorage.removeItem('ari_pending_promo_click')
+         const firePendingEvent = () => {
+             if (typeof utag !== 'undefined') {
+                 try {
+                     const pendingData = JSON.parse(pendingPromoClick)
+                     this.triggerUtagLink(pendingData)
+                 } catch(e) {
+                     console.error('Error firing pending promo click event', e)
+                 } finally {
+                     sessionStorage.removeItem('ari_pending_promo_click')
+                 }
+             } else {
+                 // Wait for utag to load if utag is not loaded yet
+                 setTimeout(firePendingEvent, 200)
+             }
          }
+         firePendingEvent()
     }
 
     const handleGoogleMapClick = (event) => {
