@@ -1160,7 +1160,7 @@ class EventHandler {
     if (this.initialized) return
 
     const handleGoogleMapClick = (event) => {
-      utag_data.tealium_event = 'google_map_click'
+      window.utag_data.tealium_event = 'google_map_click'
       this.triggerUtagLink({ tealium_event: 'google_map_click' })
     }
 
@@ -1181,16 +1181,16 @@ class EventHandler {
             clickedPromotionDetails.innerHTML.replace(/&quot;/g, '"')
           )
           if (promotionDataSource.promotionId) {
-            utag_data.promotion_id = promotionDataSource.promotionId
-            utag_data.promotion_name = promotionDataSource.promotionName
+            window.utag_data.promotion_id = promotionDataSource.promotionId
+            window.utag_data.promotion_name = promotionDataSource.promotionName
           }
           if (promotionDataSource.promotionMakeId) {
-            utag_data.promotion_make_id = promotionDataSource.promotionMakeId
-            utag_data.promotion_make = promotionDataSource.promotionMake
+            window.utag_data.promotion_make_id = promotionDataSource.promotionMakeId
+            window.utag_data.promotion_make = promotionDataSource.promotionMake
           }
           if (promotionDataSource.promotionCategoryId) {
-            utag_data.promotion_category = promotionDataSource.promotionCategory
-            utag_data.promotion_category_id =
+            window.utag_data.promotion_category = promotionDataSource.promotionCategory
+            window.utag_data.promotion_category_id =
               promotionDataSource.promotionCategoryId
           }
         } catch (e) {
@@ -1203,7 +1203,7 @@ class EventHandler {
             if (href && href.includes('/factory-promotions/')) {
                  const potentialId = href.split('/').pop();
                  if (potentialId && /^\d+$/.test(potentialId)) {
-                     utag_data.promotion_id = potentialId;
+                     window.utag_data.promotion_id = potentialId;
                  }
             }
         } catch(e) {
@@ -1211,24 +1211,19 @@ class EventHandler {
         }
       }
 
-      utag_data.site_section = 'promo'
-      utag_data.site_sub_section = 'promo_detail'
-      utag_data.tealium_event = 'promo_click'
+      window.utag_data.site_section = 'promo'
+      window.utag_data.site_sub_section = 'promo_detail'
+      window.utag_data.tealium_event = 'promo_click'
 
-      const navigate = () => {
-        if (targetHref) {
-          window.location.href = targetHref
-        }
+      // Use a fixed timeout navigation to ensure event firing
+      // We do not rely on callback from utag because it might be unreliable or synchronous
+      if (targetHref) {
+           setTimeout(() => {
+               window.location.href = targetHref
+           }, 400)
       }
 
-      const timeoutId = setTimeout(navigate, 500)
-
-      const callback = () => {
-        clearTimeout(timeoutId)
-        navigate()
-      }
-
-      this.triggerUtagLink(utag_data, callback)
+      this.triggerUtagLink(window.utag_data)
     }
 
     const handleCarouselClick = (event, matchingElement) => {
@@ -1257,8 +1252,8 @@ class EventHandler {
       final.carousel_asset_index = currentlyVisibleSlideIndex
       final.site_sub_section = 'home'
 
-      final = $.extend({}, utag_data, final)
-
+      final = $.extend({}, window.utag_data, final)
+      
       this.triggerUtagLink(final)
     }
 
