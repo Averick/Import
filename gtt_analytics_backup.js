@@ -22,6 +22,12 @@ class AnalyticsUtils {
 
   // Tealium utilities
   triggerUtagView(utag_data, customData = {}) {
+    // Check if there is a pending promo click event that needs to be fired first
+    if (sessionStorage.getItem('ari_pending_promo_click')) {
+        console.log('Suppressing view event due to pending promo click')
+        return
+    }
+
     let eventData = Object.assign({}, utag_data, customData)
     eventData = this.convertToSnakeCaseKeys(eventData)
     eventData = this.cleanEventData(eventData)
@@ -878,11 +884,10 @@ class ProductHandler {
   extractProductItems(config) {
     const productItems = []
     const productItemFields = ProductHandler.PRODUCT_FIELDS
-    const self = this // Store reference to the class instance
+    const self = this
 
     $('span.datasource.hidden').each(function () {
       try {
-        // 'this' here refers to the DOM element (span)
         const elementText = this.innerText || this.textContent
 
         if (!elementText || elementText.trim() === '') {
@@ -892,7 +897,6 @@ class ProductHandler {
 
         const data = JSON.parse(elementText)
 
-        // Use 'self' to call the class method
         if (self.isValidProductData(data, productItemFields)) {
           productItems.push(data)
         }
@@ -1134,7 +1138,10 @@ class ProductHandler {
     try {
       const queryString = window.location.search
       if (queryString && window.analyticsUtils) {
-        return window.analyticsUtils.QueryStringToJSON() || {}
+        const rawData = window.analyticsUtils.QueryStringToJSON() || {}
+        if (rawData.productId) {
+          return this.parseProductsData(window.TealiumConfig || {}, rawData)
+        }
       }
     } catch (error) {
       console.warn('Failed to parse query string for product data:', error)
@@ -1148,48 +1155,71 @@ class EventHandler {
     this.initialized = false
   }
 
-  triggerUtagLink(eventData) {
-    window.analyticsUtils.triggerUtagLink({}, null, eventData)
+  triggerUtagView(eventData) {
+    window.analyticsUtils.triggerUtagView(eventData)
+  }
+
+  triggerUtagLink(eventData, callback) {
+
+    window.analyticsUtils.triggerUtagLink({}, null, eventData, callback)
   }
 
   triggerUtagTrack(eventName, eventData) {
     window.analyticsUtils.triggerUtagTrack(eventName, eventData)
   }
 
-  initialize(config, utag_data) {
+  initialize(config) {
     if (this.initialized) return
 
+
+    const pendingPromoClick = sessionStorage.getItem('ari_pending_promo_click')
+    
+    const handleInitialEvents = () => {
+         if (typeof utag !== 'undefined') {
+            // This logic exists to avoid race condition between promotion detail click and promotion detail page navigation
+            // If promotion detail click event is not fired, it will be fired here
+             if (pendingPromoClick) {
+                 try {
+                     const pendingData = JSON.parse(pendingPromoClick)
+                     this.triggerUtagLink(pendingData)
+                     //utag.cfg.noview = true
+                 } catch(e) {
+                     console.error('Error firing pending promo click event', e)
+                 } finally {
+                     sessionStorage.removeItem('ari_pending_promo_click')
+                     //utag.cfg.noview = false
+                 }
+
+               //this.triggerUtagView(window.utag_data)
+             }
+         } else {
+             setTimeout(handleInitialEvents, 50)
+         }
+    }
+    
+    handleInitialEvents()
+
+
     const handleGoogleMapClick = (event) => {
-      utag_data.tealium_event = 'google_map_click'
-      this.triggerUtagLink({ tealium_event: 'google_map_click' })
+      window.utag_data.tealium_event = 'google_map_click'
+      this.triggerUtagLink(Object.assign({}, window.utag_data))
     }
 
     const handlePromoClick = (event, matchingElement) => {
       var clickedPromotionDetails = matchingElement.querySelector('script')
       
-      // Fallback: look for script in the parent container (if button is <a>)
       if (!clickedPromotionDetails && matchingElement.parentElement) {
          clickedPromotionDetails = matchingElement.parentElement.querySelector('script')
       }
+
+      const promotionData = {}
 
       if (clickedPromotionDetails) {
         try {
           var promotionDataSource = JSON.parse(
             clickedPromotionDetails.innerHTML.replace(/&quot;/g, '"')
           )
-          if (promotionDataSource.promotionId) {
-            utag_data.promotion_id = promotionDataSource.promotionId
-            utag_data.promotion_name = promotionDataSource.promotionName
-          }
-          if (promotionDataSource.promotionMakeId) {
-            utag_data.promotion_make_id = promotionDataSource.promotionMakeId
-            utag_data.promotion_make = promotionDataSource.promotionMake
-          }
-          if (promotionDataSource.promotionCategoryId) {
-            utag_data.promotion_category = promotionDataSource.promotionCategory
-            utag_data.promotion_category_id =
-              promotionDataSource.promotionCategoryId
-          }
+          Object.assign(promotionData, promotionDataSource)
         } catch (e) {
           console.error('Error parsing promotion details JSON', e)
         }
@@ -1200,7 +1230,7 @@ class EventHandler {
             if (href && href.includes('/factory-promotions/')) {
                  const potentialId = href.split('/').pop();
                  if (potentialId && /^\d+$/.test(potentialId)) {
-                     utag_data.promotion_id = potentialId;
+                     promotionData.promotionId = potentialId;
                  }
             }
         } catch(e) {
@@ -1208,11 +1238,23 @@ class EventHandler {
         }
       }
 
-      utag_data.site_section = 'promo'
-      utag_data.site_sub_section = 'promo_detail'
-      utag_data.tealium_event = 'promo_click'
+      
+      // Store event data for next page flow
+      const promoEventData = Object.assign({}, window.utag_data || {}, {
+          site_section: 'promo',
+          site_sub_section: 'promo_detail',
+          tealium_event: 'promo_click'
+      })
 
-      this.triggerUtagLink(utag_data)
+      if (promotionData.promotionId) promoEventData.promotion_id = promotionData.promotionId
+      if (promotionData.promotionName) promoEventData.promotion_name = promotionData.promotionName
+      if (promotionData.promotionMakeId) promoEventData.promotion_make_id = promotionData.promotionMakeId
+      if (promotionData.promotionMake) promoEventData.promotion_make = promotionData.promotionMake
+      if (promotionData.promotionCategory) promoEventData.promotion_category = promotionData.promotionCategory
+      if (promotionData.promotionCategoryId) promoEventData.promotion_category_id = promotionData.promotionCategoryId
+      
+      sessionStorage.setItem('ari_pending_promo_click', JSON.stringify(promoEventData))
+      utag.cfg.noview = true
     }
 
     const handleCarouselClick = (event, matchingElement) => {
@@ -1241,8 +1283,8 @@ class EventHandler {
       final.carousel_asset_index = currentlyVisibleSlideIndex
       final.site_sub_section = 'home'
 
-      final = $.extend({}, utag_data, final)
-
+      final = $.extend({}, window.utag_data, final)
+      
       this.triggerUtagLink(final)
     }
 
@@ -1323,7 +1365,7 @@ class EventHandler {
     this.setupEcommerceEventHandlers()
 
     window.addEventListener('load', () => {
-      this.initializeBRPEvents(config, utag_data)
+      this.initializeBRPEvents(config, window.utag_data)
     })
 
     this.initialized = true
@@ -1740,7 +1782,6 @@ class EventHandler {
           if (!('ecomm_part_detail_inventory_class' in event.data)) {
             event.data.ecomm_part_detail_inventory_class = 'Part'
           }
-          // Trigger the event through analytics utils
           window.analyticsUtils.triggerUtagLink(
             {},
             'ecommerce_part_cart_action',
@@ -1760,7 +1801,6 @@ class EventHandler {
           if (!('ecomm_part_detail_inventory_class' in event.data)) {
             event.data.ecomm_part_detail_inventory_class = 'Part'
           }
-          // Trigger the event through analytics utils
           window.analyticsUtils.triggerUtagLink(
             {},
             'ecommerce_part_modify_cart',
@@ -1928,22 +1968,13 @@ class FormHandler {
     // Check page type from utag_data to determine if we should process static forms
     const pageType = window.utag_data?.page_type || 'other'
 
-    console.log(
-      `🔍 Page type: ${pageType} - Checking if static form loads should be tracked`
-    )
-
     // Skip static form processing for search and product details pages
     // Forms on these pages should only trigger when modals are opened
     if (pageType === 'search' || pageType === 'product details') {
-      console.log(
-        `⏭️ Skipping static form loads on ${pageType} page - forms will only trigger when modals are opened`
-      )
       return
     }
 
-    console.log(
-      `✅ Processing static form loads for ${pageType} page (matches old template behavior)`
-    )
+
 
     let forms = Array.from(
       document.querySelectorAll(
@@ -1960,9 +1991,7 @@ class FormHandler {
       return !containsAnother
     })
 
-    console.log(
-      `🔍 trackStaticFormLoads called for ${pageType} page - Found ${forms.length} unique LeadForm/OfferedServices components`
-    )
+
 
     forms.forEach((form) => {
       // Create unique identifier for this form to prevent duplicates
@@ -1978,49 +2007,31 @@ class FormHandler {
 
       // Skip if already tracked
       if (this.formLoadTracked.has(formKey)) {
-        console.log(
-          `⏭️ Skipping already tracked form: ${formName} (ID: ${formId})`
-        )
         return
       }
 
       // Follow EXACT exclusion logic from old template (return true = skip)
       if (form.closest('div[class*="Staff_"]')) {
-        console.log(`⏭️ Skipping Staff form: ${formName} (ID: ${formId})`)
         return // Skip staff forms (matches old template: return true)
       }
       // Removed exclusion for OfferedServices_ to allow tracking
       if (form.closest('div[class*="ShowcaseRoot_"]')) {
-        console.log(
-          `⏭️ Skipping ShowcaseRoot form: ${formName} (ID: ${formId})`
-        )
         return // Skip showcase forms (matches old template: return true)
       }
       if (form.closest('div[class*="VDP-Unit-Detail_"]')) {
-        console.log(
-          `⏭️ Skipping VDP-Unit-Detail form: ${formName} (ID: ${formId})`
-        )
         return // Skip VDP unit detail forms (matches old template: return true)
       }
       if (form.closest('div[class*="SearchRoot_"]')) {
-        console.log(`⏭️ Skipping SearchRoot form: ${formName} (ID: ${formId})`)
         return // Skip search forms (matches old template: return true)
       }
 
       // Skip "Can't Find What You're Looking For?" form on desktop (exact logic from old template)
       if (formId == 1461 && screen.width >= 768) {
-        console.log(
-          `⏭️ Skipping Can't Find form (desktop): ${formName} (ID: ${formId})`
-        )
         return // Skip desktop "Can't Find" form (matches old template: return true)
       }
 
       // Mark as tracked BEFORE processing to prevent duplicates
       this.formLoadTracked.add(formKey)
-
-      console.log(
-        `🔍 Processing static form_load for: ${formName} (ID: ${formId}) - Key: ${formKey}`
-      )
 
       this.processFormLoad(form)
     })
@@ -2037,7 +2048,8 @@ class FormHandler {
       {},
       this.config?.siteUser || {},
       formData,
-      productData
+      productData,
+      window.productHandler?.getShowCaseData(this.utag_data) || {}
     )
 
     if (this.utag_data && this.utag_data.page_h1) {
@@ -2231,21 +2243,17 @@ class FormHandler {
 
   // Add formInteraction method to match original API exactly
   formInteraction(final, formDetail, optionalParam = '') {
-    console.log('formInteraction called with:', { final, formDetail })
-
     // Find the actual form element inside the modal (exactly like original)
     const formElement = document.querySelector(
       '#' + formDetail + ' form' + optionalParam
     )
 
     if (formElement) {
-      console.log(`Form with ID found, attaching event listeners.`)
       const formKey = this.getFormKey(final)
 
       // Function to handle first interaction (exactly like original)
       const handleFirstInteraction = () => {
         if (!this.interactionTracked.has(formKey)) {
-          console.log('Tracking form interaction for:', formKey)
           this.interactionTracked.add(formKey)
 
           var finalInteractionData = Object.assign({}, final)
@@ -2266,8 +2274,6 @@ class FormHandler {
       formElement.addEventListener('focus', handleFirstInteraction)
       formElement.addEventListener('click', handleFirstInteraction)
     } else {
-      console.log(`Form with ID ${formDetail} not found.`)
-      
       // Fallback: if we have a constructed ID and it's not found, maybe we are dealing with a direct form element
       // Check if we can find it by other means or if the ID is actually on the form itself (which querySelector might miss if looking *inside*)
       if (document.getElementById(formDetail)) {
@@ -2276,7 +2282,6 @@ class FormHandler {
               // Re-call logic manually or setup direct interaction
               // Since this method relies on formElement being found, let's try to adapt
               // If direct form is the form
-               console.log(`Found element by ID ${formDetail} directly.`);
           }
       }
     }
@@ -2305,8 +2310,6 @@ class FormHandler {
 
     this.formSubmissionTracked.add(formKey)
 
-    // Extract form field data
-    // Extract form field data
     const fieldData = this.extractFormFieldData(form)
     const submissionData = Object.assign(
       {},
@@ -2573,48 +2576,7 @@ class FormHandler {
   }
 
   // Enhanced form submission handling
-  setupFormSubmissionTracking() {
-    /* 
-    // Commenting out redundant listeners to prevent double firing.
-    // These are handled by AnalyticsManager.setupCustomEventListeners with richer data context.
-    
-    document.addEventListener('submit', (event) => {
-      const form = event.target
-      const parentComponent = form.closest('.component[class*=" LeadForm_"]')
 
-      if (parentComponent) {
-        this.handleFormSubmission(form, parentComponent)
-      }
-    })
-
-    // Listen for custom form submission events
-    document.addEventListener('FormSubmissionDetails', (e) => {
-      this.executeWithErrorHandling(() => {
-        let capturedFormData = {};
-
-        if (e.detail) {
-          capturedFormData = e.detail;
-        } else if (e.detail.formData) {
-          capturedFormData = e.detail.formData;
-        }
-
-        if (capturedFormData) {
-          const eventData = {
-            tealium_event: 'form_submit',
-            ...capturedFormData,
-          }
-
-          // Check for specific form submission types
-          if (eventData.form_name === 'Get A Quote') {
-            eventData.tealium_event = 'did_get_a_quote_form_submit'
-          }
-
-          this.trackEvent(eventData.tealium_event, eventData)
-        }
-      }, 'Could not process form submission details event')
-    })
-    */
-  }
 
   // Helper method to execute code with error handling
   executeWithErrorHandling(fn, errorMessage) {
@@ -3051,16 +3013,8 @@ class AnalyticsManager {
   }
 
   processConfiguration() {
-    // Create base utag_data from siteUser, preserving any existing window.utag_data fields
-    window.utag_data = window.utag_data || {}
     
-    // Merge siteUser into global utag_data, preserving existing values
-    // Using jQuery extend to match legacy behavior: $.extend({}, siteUser) 
-    // but here we merge INTO window.utag_data
     if (typeof $ !== 'undefined' && $.extend) {
-        // Legacy: var utag_data = $.extend({}, siteUser);
-        // We do: $.extend(window.utag_data, siteUser, window.utag_data); 
-        // Logic: Start with siteUser, then overwrite with any existing window.utag_data values (priority to existing)
         const existing = $.extend({}, window.utag_data);
         $.extend(window.utag_data, this.config.siteUser, existing);
     } else {
@@ -3068,18 +3022,29 @@ class AnalyticsManager {
         Object.assign(window.utag_data, this.config.siteUser, existing);
     }
 
-    // Add page-specific data
     this.addPageDataToUtag()
 
-    // Add search data if applicable
     this.addSearchDataToUtag()
+
+    if (window.analyticsUtils) {
+      window.utag_data = window.analyticsUtils.cleanEventData(window.utag_data)
+    }
   }
 
   addPageDataToUtag() {
     const config = this.config
 
-    if (config.pageType) window.utag_data.page_type = config.pageType
-    if (config.pageSubType) window.utag_data.page_sub_type = config.pageSubType
+    const pageType = config.pageType || config.page_type
+    const pageSubType = config.pageSubType || config.page_sub_type || config.page_subtype
+
+    if (pageType) {
+      window.utag_data.page_type = pageType
+      window.utag_data.site_section = pageType
+    }
+    if (pageSubType) {
+      window.utag_data.page_sub_type = pageSubType
+      window.utag_data.site_sub_section = pageSubType
+    }
     if (config.pageBrand) window.utag_data.page_make = config.pageBrand
     if (config.pageBrandId) window.utag_data.page_make_id = config.pageBrandId
     if (config.pageBrandCategory)
@@ -3432,7 +3397,7 @@ class AnalyticsManager {
       }, 'Error processing eCommerce event')
     })
 
-    // window.utag_data is already global, no need to reassign
+
   }
 
   handleWindowLoad() {
@@ -3457,10 +3422,9 @@ class AnalyticsManager {
         this.triggerUtagLink(eventType, data)
       })
       window.formHandler.setupFormTracking()
-      window.formHandler.setupFormSubmissionTracking()
     }
 
-    // window.utag_data is already global
+
   }
 
   updateUtagData(updates) {
@@ -3489,4 +3453,3 @@ class AnalyticsManager {
     return window.formHandler.TriggerUtagFormLoad(modal)
   }
 })()
-
