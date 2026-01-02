@@ -39,12 +39,21 @@ class AnalyticsUtils {
   }
 
   triggerUtagLink(utag_data, eventType = null, customData = {}, callback = null) {
-    let eventData = Object.assign({}, customData)
+    let eventData = {}
+
+    if (sessionStorage.getItem('ari_pending_promo_click')) {
+      Object.assign(eventData, utag_data, customData)
+    } else {
+      Object.assign(eventData, customData)
+    }
+
     if (eventType) {
       eventData.tealium_event = eventType
     }
+
     eventData = this.convertToSnakeCaseKeys(eventData)
     eventData = this.cleanEventData(eventData)
+    
     if (typeof utag !== 'undefined') {
       if (callback && typeof callback === 'function') {
         utag.link(eventData, callback)
@@ -69,7 +78,9 @@ class AnalyticsUtils {
     Object.keys(obj).forEach((key) => {
       let newKey
 
-      if (specialMappings[key]) {
+      if (key.startsWith('_')) {
+        newKey = key
+      } else if (specialMappings[key]) {
         newKey = specialMappings[key]
       } else {
         newKey = key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)
