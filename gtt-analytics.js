@@ -1182,7 +1182,7 @@ class EventHandler {
                  try {
                      const pendingData = JSON.parse(pendingPromoClick)
                      this.triggerUtagLink(pendingData)
-                     utag.cfg.noview = true
+                     //utag.cfg.noview = true
                  } catch(e) {
                      console.error('Error firing pending promo click event', e)
                  } finally {
@@ -1252,7 +1252,7 @@ class EventHandler {
       if (promotionData.promotionCategoryId) promoEventData.promotion_category_id = promotionData.promotionCategoryId
       
       sessionStorage.setItem('ari_pending_promo_click', JSON.stringify(promoEventData))
-      utag.cfg.noview = false
+      utag.cfg.noview = true
     }
 
     const handleCarouselClick = (event, matchingElement) => {
