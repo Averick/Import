@@ -1242,7 +1242,13 @@ class EventHandler {
           const container = wrapper.closest('.promotionListDisplay__container');
           if (container) {
               const industryEl = container.querySelector('[data-product-industry]');
-              if (industryEl) promotionData.promotion_category = industryEl.getAttribute('data-product-industry');
+              if (industryEl) {
+                promotionData.promotion_category = industryEl.getAttribute('data-product-industry');
+                const industryId = industryEl.getAttribute('data-product-industryid');
+                if (industryId) {
+                    promotionData.promotion_category_id = industryId;
+                }
+              }
 
               // Make fallback
               if (!promotionData.promotion_make) {
@@ -1253,12 +1259,12 @@ class EventHandler {
       }
       
       // Store event data for next page flow
-      const promoEventData = Object.assign({}, window.utag_data || {}, {
+      const promoEventData = {
           site_section: 'promo',
           site_sub_section: 'promo_detail',
           tealium_event: 'promo_click',
           ...promotionData
-      })
+      }
       
       sessionStorage.setItem('ari_pending_promo_click', JSON.stringify(promoEventData))
       utag.cfg.noview = true
