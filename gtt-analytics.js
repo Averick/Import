@@ -28,6 +28,11 @@ class AnalyticsUtils {
         return
     }
 
+    if (this.promoViewFired && utag_data && utag_data.is_initial_load) {
+        console.log('Suppressing duplicate view event because promo view was already fired')
+        return
+    }
+
     let eventData = Object.assign({}, utag_data, customData)
     eventData = this.convertToSnakeCaseKeys(eventData)
     eventData = this.cleanEventData(eventData)
@@ -1188,7 +1193,8 @@ class EventHandler {
                      sessionStorage.removeItem('ari_pending_promo_click')
                  }
                  
-                 this.triggerUtagView(window.utag_data)
+                this.triggerUtagView(window.utag_data)
+                window.analyticsUtils.promoViewFired = true
              }
          } else {
              setTimeout(handleInitialEvents, 50)
@@ -3412,7 +3418,7 @@ class AnalyticsManager {
     var oemPartsLookupExists =
       $(".component[class*='OEMPartsLookup_']").length >= 1
     if (!pssExists || oemPartsLookupExists) {
-      this.triggerUtagView()
+      this.triggerUtagView({ ...window.utag_data, is_initial_load: true })
     }
 
     if (window.formHandler) {
