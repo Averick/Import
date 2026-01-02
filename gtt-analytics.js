@@ -1182,10 +1182,12 @@ class EventHandler {
                  try {
                      const pendingData = JSON.parse(pendingPromoClick)
                      this.triggerUtagLink(pendingData)
+                     utag.cfg.noview = true
                  } catch(e) {
                      console.error('Error firing pending promo click event', e)
                  } finally {
                      sessionStorage.removeItem('ari_pending_promo_click')
+                     utag.cfg.noview = false
                  }
              }
          } else {
