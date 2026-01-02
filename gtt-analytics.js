@@ -1206,52 +1206,59 @@ class EventHandler {
     }
 
     const handlePromoClick = (event, matchingElement) => {
-      var clickedPromotionDetails = matchingElement.querySelector('script')
+      let promotionData = {};
       
-      if (!clickedPromotionDetails && matchingElement.parentElement) {
-         clickedPromotionDetails = matchingElement.parentElement.querySelector('script')
-      }
-
-      const promotionData = {}
-
-      if (clickedPromotionDetails) {
-        try {
-          var promotionDataSource = JSON.parse(
-            clickedPromotionDetails.innerHTML.replace(/&quot;/g, '"')
-          )
-          Object.assign(promotionData, promotionDataSource)
-        } catch (e) {
-          console.error('Error parsing promotion details JSON', e)
-        }
-      } else {
-        // Fallback: Try to extract ID from URL if script data is missing
-        try {
-            const href = matchingElement.getAttribute('href');
-            if (href && href.includes('/factory-promotions/')) {
-                 const potentialId = href.split('/').pop();
-                 if (potentialId && /^\d+$/.test(potentialId)) {
-                     promotionData.promotionId = potentialId;
-                 }
+      // 1. Extract ID from URL
+      try {
+        const href = matchingElement.getAttribute('href');
+        if (href) {
+            // potential formats: /factory-promotions/12345 or /factory-promotions/12345/
+            const parts = href.split('/').filter(part => part.length > 0);
+            const potentialId = parts.pop();
+            if (potentialId && /^\d+$/.test(potentialId)) {
+                promotionData.promotion_id = potentialId;
             }
-        } catch(e) {
-            console.error('Error extracting promotion ID from URL', e);
         }
-      }
+      } catch(e) { console.error('Error parsing promo ID from href', e); }
 
+      // 2. DOM Traversal for Details
+      const wrapper = matchingElement.closest('.promotionListDisplay__wrapper');
+      if (wrapper) {
+          // Promotion Name from Title
+          const titleEl = wrapper.querySelector('.promotionListDisplay__title');
+          if (titleEl) promotionData.promotion_name = titleEl.innerText.trim();
+
+          // Make from Brand Logo Alt
+          const imgEl = wrapper.querySelector('.promotionListDisplay__brandLogoImg');
+          if (imgEl) promotionData.promotion_make = imgEl.getAttribute('alt');
+          
+          // ID fallback from data attribute
+          if (!promotionData.promotion_id) {
+             const idEl = wrapper.querySelector('[data-promotionid]');
+             if (idEl) promotionData.promotion_id = idEl.getAttribute('data-promotionid');
+          }
+
+          // 3. Container Level Data (Category, Industry)
+          const container = wrapper.closest('.promotionListDisplay__container');
+          if (container) {
+              const industryEl = container.querySelector('[data-product-industry]');
+              if (industryEl) promotionData.promotion_category = industryEl.getAttribute('data-product-industry');
+
+              // Make fallback
+              if (!promotionData.promotion_make) {
+                  const ownerEl = container.querySelector('[data-product-productownername]');
+                  if (ownerEl) promotionData.promotion_make = ownerEl.getAttribute('data-product-productownername');
+              }
+          }
+      }
       
       // Store event data for next page flow
       const promoEventData = Object.assign({}, window.utag_data || {}, {
           site_section: 'promo',
           site_sub_section: 'promo_detail',
-          tealium_event: 'promo_click'
+          tealium_event: 'promo_click',
+          ...promotionData
       })
-
-      if (promotionData.promotionId) promoEventData.promotion_id = promotionData.promotionId
-      if (promotionData.promotionName) promoEventData.promotion_name = promotionData.promotionName
-      if (promotionData.promotionMakeId) promoEventData.promotion_make_id = promotionData.promotionMakeId
-      if (promotionData.promotionMake) promoEventData.promotion_make = promotionData.promotionMake
-      if (promotionData.promotionCategory) promoEventData.promotion_category = promotionData.promotionCategory
-      if (promotionData.promotionCategoryId) promoEventData.promotion_category_id = promotionData.promotionCategoryId
       
       sessionStorage.setItem('ari_pending_promo_click', JSON.stringify(promoEventData))
       utag.cfg.noview = true
@@ -3453,4 +3460,3 @@ class AnalyticsManager {
     return window.formHandler.TriggerUtagFormLoad(modal)
   }
 })()
-
