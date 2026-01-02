@@ -1187,7 +1187,7 @@ class EventHandler {
                      console.error('Error firing pending promo click event', e)
                  } finally {
                      sessionStorage.removeItem('ari_pending_promo_click')
-                     utag.cfg.noview = false
+                     //utag.cfg.noview = false
                  }
 
                this.triggerUtagView(window.utag_data)
