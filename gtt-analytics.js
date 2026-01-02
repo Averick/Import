@@ -1221,42 +1221,22 @@ class EventHandler {
         }
       } catch(e) { console.error('Error parsing promo ID from href', e); }
 
-      // 2. DOM Traversal for Details
-      const wrapper = matchingElement.closest('.promotionListDisplay__wrapper');
-      if (wrapper) {
-          // Promotion Name from Title
-          const titleEl = wrapper.querySelector('.promotionListDisplay__title');
-          if (titleEl) promotionData.promotion_name = titleEl.innerText.trim();
-
-          // Make from Brand Logo Alt
-          const imgEl = wrapper.querySelector('.promotionListDisplay__brandLogoImg');
-          if (imgEl) promotionData.promotion_make = imgEl.getAttribute('alt');
-          
-          // ID fallback from data attribute
-          if (!promotionData.promotion_id) {
-             const idEl = wrapper.querySelector('[data-promotionid]');
-             if (idEl) promotionData.promotion_id = idEl.getAttribute('data-promotionid');
-          }
-
-          // 3. Container Level Data (Category, Industry)
-          const container = wrapper.closest('.promotionListDisplay__container');
-          if (container) {
-              const industryEl = container.querySelector('[data-product-industry]');
-              if (industryEl) {
-                promotionData.promotion_category = industryEl.getAttribute('data-product-industry');
-                const industryId = industryEl.getAttribute('data-product-industryid');
-                if (industryId) {
-                    promotionData.promotion_category_id = industryId;
-                }
-              }
-
-              // Make fallback
-              if (!promotionData.promotion_make) {
-                  const ownerEl = container.querySelector('[data-product-productownername]');
-                  if (ownerEl) promotionData.promotion_make = ownerEl.getAttribute('data-product-productownername');
+      // 2. Try to get data from embedded JSON (most reliable)
+      try {
+          const jsonScript = matchingElement.querySelector('.promotion-datasource');
+          if (jsonScript) {
+              const data = JSON.parse(jsonScript.textContent);
+              if (data) {
+                  if (data.promotionId) promotionData.promotion_id = data.promotionId;
+                  if (data.promotionName) promotionData.promotion_name = data.promotionName;
+                  if (data.promotionMake) promotionData.promotion_make = data.promotionMake;
+                  if (data.promotionCategory) promotionData.promotion_category = data.promotionCategory;
+                  if (data.promotionCategoryId) promotionData.promotion_category_id = data.promotionCategoryId;
               }
           }
-      }
+      } catch (e) { console.error('Error parsing promotion datasource', e); }
+
+
       
       // Store event data for next page flow
       const promoEventData = {
