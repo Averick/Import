@@ -1188,7 +1188,7 @@ class EventHandler {
                      sessionStorage.removeItem('ari_pending_promo_click')
                  }
                  
-                 this.triggerUtagView(window.utag_data)
+                 // this.triggerUtagView(window.utag_data)
              }
          } else {
              setTimeout(handleInitialEvents, 50)
