@@ -1252,7 +1252,7 @@ class EventHandler {
       if (promotionData.promotionCategoryId) promoEventData.promotion_category_id = promotionData.promotionCategoryId
       
       sessionStorage.setItem('ari_pending_promo_click', JSON.stringify(promoEventData))
-
+      utag.cfg.noview = false
     }
 
     const handleCarouselClick = (event, matchingElement) => {
