@@ -1190,7 +1190,7 @@ class EventHandler {
                      //utag.cfg.noview = false
                  }
 
-               this.triggerUtagView(window.utag_data)
+               //this.triggerUtagView(window.utag_data)
              }
          } else {
              setTimeout(handleInitialEvents, 50)
