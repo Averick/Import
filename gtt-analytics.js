@@ -42,9 +42,9 @@ class AnalyticsUtils {
     let eventData = {}
 
     if (sessionStorage.getItem('ari_pending_promo_click')) {
-      eventData = Object.assign(eventData, utag_data, customData)
+      eventData = Object.assign(eventData, window.utag_data, customData)
     } else {
-      eventData = Object.assign(eventData, utag_data, customData)
+      eventData = Object.assign(eventData, window.utag_data, customData)
     }
 
     if (eventType) {
