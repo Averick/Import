@@ -44,7 +44,7 @@ class AnalyticsUtils {
     if (sessionStorage.getItem('ari_pending_promo_click')) {
       eventData = Object.assign(eventData, utag_data, customData)
     } else {
-      eventData = Object.assign(eventData, customData)
+      eventData = Object.assign(eventData, utag_data, customData)
     }
 
     if (eventType) {
