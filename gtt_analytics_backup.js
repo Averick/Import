@@ -39,12 +39,21 @@ class AnalyticsUtils {
   }
 
   triggerUtagLink(utag_data, eventType = null, customData = {}, callback = null) {
-    let eventData = Object.assign({}, customData)
+    let eventData = {}
+
+    if (sessionStorage.getItem('ari_pending_promo_click')) {
+      eventData = Object.assign(eventData, window.utag_data, customData)
+    } else {
+      eventData = Object.assign(eventData, window.utag_data, customData)
+    }
+
     if (eventType) {
       eventData.tealium_event = eventType
     }
+
     eventData = this.convertToSnakeCaseKeys(eventData)
     eventData = this.cleanEventData(eventData)
+    
     if (typeof utag !== 'undefined') {
       if (callback && typeof callback === 'function') {
         utag.link(eventData, callback)
@@ -69,7 +78,9 @@ class AnalyticsUtils {
     Object.keys(obj).forEach((key) => {
       let newKey
 
-      if (specialMappings[key]) {
+      if (key.startsWith('_')) {
+        newKey = key
+      } else if (specialMappings[key]) {
         newKey = specialMappings[key]
       } else {
         newKey = key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`)
@@ -1206,52 +1217,45 @@ class EventHandler {
     }
 
     const handlePromoClick = (event, matchingElement) => {
-      var clickedPromotionDetails = matchingElement.querySelector('script')
+      let promotionData = {};
       
-      if (!clickedPromotionDetails && matchingElement.parentElement) {
-         clickedPromotionDetails = matchingElement.parentElement.querySelector('script')
-      }
-
-      const promotionData = {}
-
-      if (clickedPromotionDetails) {
-        try {
-          var promotionDataSource = JSON.parse(
-            clickedPromotionDetails.innerHTML.replace(/&quot;/g, '"')
-          )
-          Object.assign(promotionData, promotionDataSource)
-        } catch (e) {
-          console.error('Error parsing promotion details JSON', e)
-        }
-      } else {
-        // Fallback: Try to extract ID from URL if script data is missing
-        try {
-            const href = matchingElement.getAttribute('href');
-            if (href && href.includes('/factory-promotions/')) {
-                 const potentialId = href.split('/').pop();
-                 if (potentialId && /^\d+$/.test(potentialId)) {
-                     promotionData.promotionId = potentialId;
-                 }
+      // 1. Extract ID from URL
+      try {
+        const href = matchingElement.getAttribute('href');
+        if (href) {
+            // potential formats: /factory-promotions/12345 or /factory-promotions/12345/
+            const parts = href.split('/').filter(part => part.length > 0);
+            const potentialId = parts.pop();
+            if (potentialId && /^\d+$/.test(potentialId)) {
+                promotionData.promotion_id = potentialId;
             }
-        } catch(e) {
-            console.error('Error extracting promotion ID from URL', e);
         }
-      }
+      } catch(e) { console.error('Error parsing promo ID from href', e); }
+
+      // 2. Try to get data from embedded JSON (most reliable)
+      try {
+          const jsonScript = matchingElement.querySelector('.promotion-datasource');
+          if (jsonScript) {
+              const data = JSON.parse(jsonScript.textContent);
+              if (data) {
+                  if (data.promotionId) promotionData.promotion_id = data.promotionId;
+                  if (data.promotionName) promotionData.promotion_name = data.promotionName;
+                  if (data.promotionMake) promotionData.promotion_make = data.promotionMake;
+                  if (data.promotionCategory) promotionData.promotion_category = data.promotionCategory;
+                  if (data.promotionCategoryId) promotionData.promotion_category_id = data.promotionCategoryId;
+              }
+          }
+      } catch (e) { console.error('Error parsing promotion datasource', e); }
+
 
       
       // Store event data for next page flow
-      const promoEventData = Object.assign({}, window.utag_data || {}, {
+      const promoEventData = {
           site_section: 'promo',
           site_sub_section: 'promo_detail',
-          tealium_event: 'promo_click'
-      })
-
-      if (promotionData.promotionId) promoEventData.promotion_id = promotionData.promotionId
-      if (promotionData.promotionName) promoEventData.promotion_name = promotionData.promotionName
-      if (promotionData.promotionMakeId) promoEventData.promotion_make_id = promotionData.promotionMakeId
-      if (promotionData.promotionMake) promoEventData.promotion_make = promotionData.promotionMake
-      if (promotionData.promotionCategory) promoEventData.promotion_category = promotionData.promotionCategory
-      if (promotionData.promotionCategoryId) promoEventData.promotion_category_id = promotionData.promotionCategoryId
+          tealium_event: 'promo_click',
+          ...promotionData
+      }
       
       sessionStorage.setItem('ari_pending_promo_click', JSON.stringify(promoEventData))
       utag.cfg.noview = true
