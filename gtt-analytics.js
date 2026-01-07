@@ -41,7 +41,12 @@ class AnalyticsUtils {
   triggerUtagLink(eventType = null, customData = {}, callback = null) {
     let eventData = {}
 
-    if (sessionStorage.getItem('ari_pending_promo_click')) {
+    const eventName = eventType || customData.tealium_event
+    const shouldIncludeGlobalData =
+      sessionStorage.getItem('ari_pending_promo_click') ||
+      (eventName && eventName.startsWith('did_view_'))
+
+    if (shouldIncludeGlobalData) {
       Object.assign(eventData, window.utag_data, customData)
     } else {
       Object.assign(eventData, customData)
