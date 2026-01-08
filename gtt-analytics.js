@@ -3233,7 +3233,9 @@ class AnalyticsManager {
 
 
 
-        var submissionData = e.detail && e.detail.formData ? e.detail.formData : (e.detail || {});
+        var detail = e.detail || {};
+        // Merge detail and formData to ensure we have all properties (fields and auxiliary data like locations)
+        var submissionData = Object.assign({}, detail, detail.formData || {});
         form = Object.assign({}, form, submissionData);
 
         // Normalize specific fields to legacy format
@@ -3241,6 +3243,10 @@ class AnalyticsManager {
             var normalizedData = window.formHandler.normalizeFormSubmissionData(submissionData);
             form = Object.assign({}, form, normalizedData);
         }
+
+        // Cleanup lookup objects to avoid polluting analytics payload
+        delete form.AllLocations;
+        delete form.SelectedLocation;
 
         // Handle specific form submission types
         if (form.form_name === 'Get A Quote' || form.FormName === 'Get A Quote') {
