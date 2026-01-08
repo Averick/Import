@@ -3198,16 +3198,35 @@ class AnalyticsManager {
     document.addEventListener('DIDViewOfferDetailsClick', (e) => {
       this.executeWithErrorHandling(() => {
         var promo = {}
+        var formName = 'getPromotionLeadForm'
+        var formContainer = ' .form-fields-container'
+
         promo.tealium_event = 'did_view_offer_details_click'
         if (e.detail) {
-          promo.did_promotions_name = e.detail.promotionName
+          promo.did_promotions_selected = []
+          promo.did_promotions_selected.push(e.detail.promotionId)
           promo.campaign_id = e.detail.promotionId
+          if (e.detail.promotionName) {
+            promo.did_promotions_name = e.detail.promotionName
+          }
         }
-        var final = Object.assign({}, this.config.siteUser, promo)
+        
+        var final = Object.assign(
+          {}, 
+          this.config.siteUser, 
+          this.config.productInfo || {}, 
+          promo
+        )
+        
         window.analyticsUtils.triggerUtagLink(
           'did_view_offer_details_click',
           final
         )
+
+        // Restore form interaction tracking
+        if (window.formHandler) {
+          window.formHandler.formInteraction(final, formName, formContainer)
+        }
       }, 'Could not trigger utag.link on promotion ' + (e.detail?.promotionId || ''))
     })
 
@@ -3217,10 +3236,21 @@ class AnalyticsManager {
         var promo = {}
         promo.tealium_event = 'did_view_more_click'
         if (e.detail) {
-          promo.did_promotions_name = e.detail.promotionName
+          promo.did_promotions_selected = []
+          promo.did_promotions_selected.push(e.detail.promotionId)
           promo.campaign_id = e.detail.promotionId
+          if (e.detail.promotionName) {
+            promo.did_promotions_name = e.detail.promotionName
+          }
         }
-        var final = Object.assign({}, this.config.siteUser, promo)
+        
+        var final = Object.assign(
+          {}, 
+          this.config.siteUser, 
+          this.config.productInfo || {}, 
+          promo
+        )
+        
         window.analyticsUtils.triggerUtagLink('did_view_more_click', final)
       }, 'Could not trigger utag.link on promotion ' + (e.detail?.promotionId || ''))
     })
