@@ -1994,7 +1994,7 @@ class FormHandler {
 
 
 
-    forms.forEach((form) => {
+    forms.forEach((form, index) => {
       // Create unique identifier for this form to prevent duplicates
       const formId =
         form
@@ -2004,7 +2004,7 @@ class FormHandler {
         form
           .querySelector('span[data-form-name]')
           ?.getAttribute('data-form-name') || 'unknown'
-      const formKey = `${formId}_${formName}_${form.outerHTML.length}` // Include length to ensure uniqueness
+      const formKey = `${formId}_${formName}_${form.outerHTML.length}_${index}` // Include length and index to ensure uniqueness
 
       // Skip if already tracked
       if (this.formLoadTracked.has(formKey)) {
