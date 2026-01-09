@@ -2205,6 +2205,10 @@ class FormHandler {
           tealium_event: 'form_interaction',
         }
 
+        if (!interactionData._form_pretty_name && interactionData.form_name) {
+          interactionData._form_pretty_name = interactionData.form_name
+        }
+
         this.trackEvent('form_interaction', interactionData)
 
         // Remove the event listener after first interaction (one-time only)
@@ -2222,6 +2226,10 @@ class FormHandler {
         const interactionData = {
           ...formData,
           tealium_event: 'form_interaction',
+        }
+
+        if (!interactionData._form_pretty_name && interactionData.form_name) {
+          interactionData._form_pretty_name = interactionData.form_name
         }
 
         this.trackEvent('form_interaction', interactionData)
@@ -2259,6 +2267,10 @@ class FormHandler {
 
           var finalInteractionData = Object.assign({}, final)
           finalInteractionData.tealium_event = 'form_interaction'
+
+          if (!finalInteractionData._form_pretty_name && finalInteractionData.form_name) {
+            finalInteractionData._form_pretty_name = finalInteractionData.form_name
+          }
 
           // Trigger the event exactly like original
           window.analyticsUtils.triggerUtagLink('form_interaction', finalInteractionData)
