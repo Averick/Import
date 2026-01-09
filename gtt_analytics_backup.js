@@ -21,14 +21,14 @@ class AnalyticsUtils {
   }
 
   // Tealium utilities
-  triggerUtagView(utag_data, customData = {}) {
+  triggerUtagView(customData = {}) {
     // Check if there is a pending promo click event that needs to be fired first
     if (sessionStorage.getItem('ari_pending_promo_click')) {
         console.log('Suppressing view event due to pending promo click')
         return
     }
 
-    let eventData = Object.assign({}, utag_data, customData)
+    let eventData = Object.assign({}, window.utag_data, customData)
     eventData = this.convertToSnakeCaseKeys(eventData)
     eventData = this.cleanEventData(eventData)
     if (typeof utag !== 'undefined') {
@@ -38,13 +38,18 @@ class AnalyticsUtils {
     }
   }
 
-  triggerUtagLink(utag_data, eventType = null, customData = {}, callback = null) {
+  triggerUtagLink(eventType = null, customData = {}, callback = null) {
     let eventData = {}
 
-    if (sessionStorage.getItem('ari_pending_promo_click')) {
-      eventData = Object.assign(eventData, window.utag_data, customData)
+    const eventName = eventType || customData.tealium_event
+    const shouldIncludeGlobalData =
+      sessionStorage.getItem('ari_pending_promo_click') ||
+      (eventName && eventName.startsWith('did_view_'))
+
+    if (shouldIncludeGlobalData) {
+      Object.assign(eventData, window.utag_data, customData)
     } else {
-      eventData = Object.assign(eventData, window.utag_data, customData)
+      Object.assign(eventData, customData)
     }
 
     if (eventType) {
@@ -720,7 +725,7 @@ class ProductHandler {
     )
       ? 1
       : 0
-    utag_data.did_active = this.getDOMElement(
+    window.utag_data.did_active = this.getDOMElement(
       '#inventory_promoMessage',
       'promoMessage'
     )
@@ -862,12 +867,12 @@ class ProductHandler {
     }
   }
 
-  setProductItemsArrays(config, utag_data, attributeName, propertyName) {
+  setProductItemsArrays(config) {
     const productArrays = this.initializeProductArrays()
     const productItems = this.extractProductItems(config)
 
     this.populateProductArrays(config, productArrays, productItems)
-    this.addArraysToUtag(utag_data, productArrays)
+    this.addArraysToUtag(productArrays)
   }
 
   initializeProductArrays() {
@@ -961,12 +966,12 @@ class ProductHandler {
     return value !== undefined && String(value).toUpperCase() === 'TRUE'
   }
 
-  addArraysToUtag(utag_data, arrays) {
+  addArraysToUtag(arrays) {
     Object.entries(ProductHandler.UTAG_MAPPINGS).forEach(
       ([utagKey, arrayKey]) => {
         const array = arrays[arrayKey]
         if (array && array.length > 0) {
-          utag_data[utagKey] = array
+          window.utag_data[utagKey] = array
         }
       }
     )
@@ -1093,25 +1098,25 @@ class ProductHandler {
     return window.analyticsUtils.parsePrice(priceString)
   }
 
-  getShowCaseData(utag_data) {
+  getShowCaseData() {
     var showCaseData = {}
-    if (utag_data.page_make) {
-      showCaseData.page_make = utag_data.page_make.toLowerCase()
+    if (window.utag_data.page_make) {
+      showCaseData.page_make = window.utag_data.page_make.toLowerCase()
     }
-    if (utag_data.page_make_id) {
-      showCaseData.page_make_id = utag_data.page_make_id
+    if (window.utag_data.page_make_id) {
+      showCaseData.page_make_id = window.utag_data.page_make_id
     }
-    if (utag_data.page_category) {
-      showCaseData.page_category = utag_data.page_category
+    if (window.utag_data.page_category) {
+      showCaseData.page_category = window.utag_data.page_category
     }
-    if (utag_data.page_category_id) {
-      showCaseData.page_category_id = utag_data.page_category_id
+    if (window.utag_data.page_category_id) {
+      showCaseData.page_category_id = window.utag_data.page_category_id
     }
-    if (utag_data.page_subcategory) {
-      showCaseData.page_subcategory = utag_data.page_subcategory
+    if (window.utag_data.page_subcategory) {
+      showCaseData.page_subcategory = window.utag_data.page_subcategory
     }
-    if (utag_data.page_subcategory_id) {
-      showCaseData.page_subcategory_id = utag_data.page_subcategory_id
+    if (window.utag_data.page_subcategory_id) {
+      showCaseData.page_subcategory_id = window.utag_data.page_subcategory_id
     }
     return showCaseData
   }
@@ -1129,16 +1134,11 @@ class ProductHandler {
       promotion.did_form_name = form.formName
       promotion.did_form_submission_first_name = form.form_submission_first_name
       promotion.did_form_submission_last_name = form.form_submission_last_name
-    }
-
-    if (data && data.contact) {
-      promotion.did_form_submission_perferred_contact = data.contact
-      if (data.contact === 'email') {
-        promotion.did_form_submission_email = data.email
-      }
-      if (data.contact === 'phone') {
-        promotion.did_form_submission_phone = data.phone
-      }
+      if(form.contact && form.contact.toLowerCase() === 'email') {
+			  promotion.did_form_submission_perferred_contact = form.form_submission_email;
+		  } else if(form.contact && form.contact.toLowerCase() === 'phone') {
+			  promotion.did_form_submission_perferred_contact = form.form_submission_phone_number;
+		  }
     }
 
     return promotion
@@ -1172,7 +1172,7 @@ class EventHandler {
 
   triggerUtagLink(eventData, callback) {
 
-    window.analyticsUtils.triggerUtagLink({}, null, eventData, callback)
+    window.analyticsUtils.triggerUtagLink(null, eventData, callback)
   }
 
   triggerUtagTrack(eventName, eventData) {
@@ -1369,13 +1369,13 @@ class EventHandler {
     this.setupEcommerceEventHandlers()
 
     window.addEventListener('load', () => {
-      this.initializeBRPEvents(config, window.utag_data)
+      this.initializeBRPEvents(config)
     })
 
     this.initialized = true
   }
 
-  initializeBRPEvents(config, utag_data) {
+  initializeBRPEvents(config) {
     const branded_zone_event = 'oem_brp_branded_zone_click'
 
     function updateUtagDataWithCallback(
@@ -1397,10 +1397,10 @@ class EventHandler {
       const redirectUrl = event.target.closest('a')?.getAttribute('href') || ''
 
       const updatedData =
-        typeof utag_data !== 'undefined'
+        typeof window.utag_data !== 'undefined'
           ? {
-            ...utag_data,
-            tealium_event: tealiumEvent,
+            ...window.utag_data,
+            tealiumEvent: tealiumEvent,
             oem_brp_branded_zone_action: action,
             ...(model && { oem_brp_branded_zone_model: model }),
             ...(condition && { oem_brp_branded_zone_condition: condition }),
@@ -1437,7 +1437,7 @@ class EventHandler {
       }
 
       if (updatedData) {
-        window.analyticsUtils.triggerUtagLink({}, null, updatedData, function () {
+        window.analyticsUtils.triggerUtagLink(null, updatedData, function () {
           triggerRedirect()
         })
       } else {
@@ -1787,7 +1787,6 @@ class EventHandler {
             event.data.ecomm_part_detail_inventory_class = 'Part'
           }
           window.analyticsUtils.triggerUtagLink(
-            {},
             'ecommerce_part_cart_action',
             event.data
           )
@@ -1806,7 +1805,6 @@ class EventHandler {
             event.data.ecomm_part_detail_inventory_class = 'Part'
           }
           window.analyticsUtils.triggerUtagLink(
-            {},
             'ecommerce_part_modify_cart',
             event.data
           )
@@ -1836,11 +1834,10 @@ class FormHandler {
     this.trackingCallback = null
   }
 
-  initialize(config, utag_data) {
+  initialize(config) {
     if (this.initialized) return
 
     this.config = config
-    this.utag_data = utag_data
 
     // Capture the correct 'this' context for use in event handlers
     const self = this
@@ -1890,7 +1887,7 @@ class FormHandler {
         if (config.pageMakeGroup) {
           final.page_make_group = config.pageMakeGroup
         }
-        window.analyticsUtils.triggerUtagLink({}, final.tealium_event, final)
+        window.analyticsUtils.triggerUtagLink(final.tealium_event, final)
         self.formInteraction(final, formdetail)
       }
     })
@@ -2053,11 +2050,11 @@ class FormHandler {
       this.config?.siteUser || {},
       formData,
       productData,
-      window.productHandler?.getShowCaseData(this.utag_data) || {}
+      window.productHandler?.getShowCaseData() || {}
     )
 
-    if (this.utag_data && this.utag_data.page_h1) {
-      enrichedFormData.page_h1 = this.utag_data.page_h1
+    if (window.utag_data && window.utag_data.page_h1) {
+      enrichedFormData.page_h1 = window.utag_data.page_h1
     }
     if (enrichedFormData.product_make) {
       enrichedFormData.page_make = enrichedFormData.product_make.toLowerCase()
@@ -2208,6 +2205,10 @@ class FormHandler {
           tealium_event: 'form_interaction',
         }
 
+        if (!interactionData._form_pretty_name && interactionData.form_name) {
+          interactionData._form_pretty_name = interactionData.form_name
+        }
+
         this.trackEvent('form_interaction', interactionData)
 
         // Remove the event listener after first interaction (one-time only)
@@ -2225,6 +2226,10 @@ class FormHandler {
         const interactionData = {
           ...formData,
           tealium_event: 'form_interaction',
+        }
+
+        if (!interactionData._form_pretty_name && interactionData.form_name) {
+          interactionData._form_pretty_name = interactionData.form_name
         }
 
         this.trackEvent('form_interaction', interactionData)
@@ -2263,8 +2268,12 @@ class FormHandler {
           var finalInteractionData = Object.assign({}, final)
           finalInteractionData.tealium_event = 'form_interaction'
 
+          if (!finalInteractionData._form_pretty_name && finalInteractionData.form_name) {
+            finalInteractionData._form_pretty_name = finalInteractionData.form_name
+          }
+
           // Trigger the event exactly like original
-          window.analyticsUtils.triggerUtagLink({}, 'form_interaction', finalInteractionData)
+          window.analyticsUtils.triggerUtagLink('form_interaction', finalInteractionData)
 
           // Remove event listeners after the first interaction (exactly like original)
           formElement.removeEventListener('input', handleFirstInteraction)
@@ -2322,8 +2331,8 @@ class FormHandler {
       fieldData
     )
 
-    if (this.utag_data && this.utag_data.page_h1) {
-      submissionData.page_h1 = this.utag_data.page_h1
+    if (window.utag_data && window.utag_data.page_h1) {
+      submissionData.page_h1 = window.utag_data.page_h1
     }
     if (submissionData.product_make) {
       submissionData.page_make = submissionData.product_make.toLowerCase()
@@ -2761,11 +2770,11 @@ class PageHandlers {
     this.initialized = false
   }
 
-  handlePageSpecificLogic(config, utag_data) {
+  handlePageSpecificLogic(config) {
     const { pageType, pageSubType } = config
 
     if (pageType === 'search') {
-      window.productHandler.setProductItemsArrays(config, utag_data)
+      window.productHandler.setProductItemsArrays(config)
 
       var headerBanners = $('[class*="component SearchRoot_"] .seo-banner')
       if (headerBanners.length == 0) {
@@ -2776,17 +2785,17 @@ class PageHandlers {
         var pageHeaderButtons =
           headerBanners[0].innerHTML.match(/href=(\"(.*?)\")/g)
         if (pageHeaderButtons) {
-          utag_data.product_list_header_buttons_uris = pageHeaderButtons
+          window.utag_data.product_list_header_buttons_uris = pageHeaderButtons
         }
         var allHeaderDescriptiveElements =
           headerBanners[0].querySelectorAll('p,li')
         if (allHeaderDescriptiveElements.length > 0) {
-          utag_data.product_list_header_p_char_counts =
+          window.utag_data.product_list_header_p_char_counts =
             window.analyticsUtils.countTextCharacters(
               allHeaderDescriptiveElements
             )
         }
-        utag_data.product_list_header_img_count =
+        window.utag_data.product_list_header_img_count =
           headerBanners[0].getElementsByTagName('img').length
       }
 
@@ -2805,32 +2814,32 @@ class PageHandlers {
           const textData = window.analyticsUtils.extractTextData(
             footerDescriptiveElements
           )
-          utag_data.product_list_footer_p_char_counts = textData.lengths
+          window.utag_data.product_list_footer_p_char_counts = textData.lengths
         }
-        utag_data.product_list_footer_img_count =
+        window.utag_data.product_list_footer_img_count =
           footerBanners[0].getElementsByTagName('img').length
 
         if (allH2InFooter.length > 0) {
           const h2TextData =
             window.analyticsUtils.extractTextData(allH2InFooter)
-          utag_data.product_list_footer_h2_char_counts = h2TextData.lengths
-          utag_data.product_list_footer_h2_strings = h2TextData.texts
+          window.utag_data.product_list_footer_h2_char_counts = h2TextData.lengths
+          window.utag_data.product_list_footer_h2_strings = h2TextData.texts
         }
         if (allH3InFooter.length > 0) {
           const h3TextData =
             window.analyticsUtils.extractTextData(allH3InFooter)
-          utag_data.product_list_footer_h3_char_counts = h3TextData.lengths
-          utag_data.product_list_footer_h3_strings = h3TextData.texts
+          window.utag_data.product_list_footer_h3_char_counts = h3TextData.lengths
+          window.utag_data.product_list_footer_h3_strings = h3TextData.texts
         }
       }
 
       var searchResultsCountLabel = $('.search-results-count')
       if (searchResultsCountLabel.length > 0) {
         var arr = searchResultsCountLabel[0].innerText.split(' ')
-        utag_data.search_result_count = arr[arr.length - 2]
+        window.utag_data.search_result_count = arr[arr.length - 2]
       }
 
-      utag_data.did_active =
+      window.utag_data.did_active =
         window.analyticsUtils.getCachedElements(
           '.promotion-link',
           'promotionLinks'
@@ -2839,32 +2848,32 @@ class PageHandlers {
           : 0
     } else if (pageType == 'showroom') {
       window.analyticsUtils.setDataPointByDataPropertyName(
-        utag_data,
+        window.utag_data,
         'data-product-owner-name',
         'page_make'
       )
       window.analyticsUtils.setDataPointByDataPropertyName(
-        utag_data,
+        window.utag_data,
         'data-product-owner-id',
         'page_make_id'
       )
       window.analyticsUtils.setDataPointByDataPropertyName(
-        utag_data,
+        window.utag_data,
         'data-category',
         'page_category'
       )
       window.analyticsUtils.setDataPointByDataPropertyName(
-        utag_data,
+        window.utag_data,
         'data-category-id',
         'page_category_id'
       )
       window.analyticsUtils.setDataPointByDataPropertyName(
-        utag_data,
+        window.utag_data,
         'data-selected-sub-category',
         'page_subcategory'
       )
       window.analyticsUtils.setDataPointByDataPropertyName(
-        utag_data,
+        window.utag_data,
         'data-selected-sub-category-id',
         'page_subcategory_id'
       )
@@ -2875,20 +2884,20 @@ class PageHandlers {
         .text()
         .trim()
       if (blog_article_author) {
-        utag_data.blog_article_author = blog_article_author
+        window.utag_data.blog_article_author = blog_article_author
       }
 
       var blog_article_category = $('.blog-detail__header-detail-category span')
         .text()
         .trim()
       if (blog_article_category) {
-        utag_data.blog_article_category = blog_article_category
+        window.utag_data.blog_article_category = blog_article_category
       }
 
       var dateStr = $('.blog-detail__header-detail-date span').text().trim()
       if (dateStr && dateStr.length > 0) {
         var date = new Date(dateStr)
-        utag_data.blog_article_date =
+        window.utag_data.blog_article_date =
           ('0' + (date.getMonth() + 1)).slice(-2) +
           '/' +
           ('0' + date.getDate()).slice(-2) +
@@ -2898,13 +2907,13 @@ class PageHandlers {
 
       var allH2InBlogDetail = $('.blog-detail h2')
       if (allH2InBlogDetail.length > 0) {
-        utag_data.blog_article_h2_char_counts = []
-        utag_data.blog_article_h2_strings = []
+        window.utag_data.blog_article_h2_char_counts = []
+        window.utag_data.blog_article_h2_strings = []
         for (var i = 0; i < allH2InBlogDetail.length; i++) {
-          utag_data.blog_article_h2_char_counts.push(
+          window.utag_data.blog_article_h2_char_counts.push(
             allH2InBlogDetail[i].innerText.length.toString()
           )
-          utag_data.blog_article_h2_strings.push(
+          window.utag_data.blog_article_h2_strings.push(
             allH2InBlogDetail[i].innerText.trim()
           )
         }
@@ -2914,19 +2923,19 @@ class PageHandlers {
         '.blog-detail p, .blog-detail li'
       )
       if (allDescriptiveElementsInBlogDetail.length > 0) {
-        utag_data.blog_article_p_char_counts = []
+        window.utag_data.blog_article_p_char_counts = []
         for (var i = 0; i < allDescriptiveElementsInBlogDetail.length; i++) {
           var text = allDescriptiveElementsInBlogDetail[i].innerText.trim()
           if (text.length > 0) {
-            utag_data.blog_article_p_char_counts.push(text.length.toString())
+            window.utag_data.blog_article_p_char_counts.push(text.length.toString())
           }
         }
       }
       var allTagsInBlogDetail = $('.blog-detail__tag-item')
       if (allTagsInBlogDetail.length > 0) {
-        utag_data.blog_article_tags = []
+        window.utag_data.blog_article_tags = []
         for (var i = 0; i < allTagsInBlogDetail.length; i++) {
-          utag_data.blog_article_tags.push(
+          window.utag_data.blog_article_tags.push(
             allTagsInBlogDetail[i].innerText.trim()
           )
         }
@@ -2934,19 +2943,19 @@ class PageHandlers {
     } else if (pageSubType === 'blog list') {
       var allCategoriesInBlogListing = $('.blog-list__blog-category')
       if (allCategoriesInBlogListing.length > 0) {
-        utag_data.blog_list_articles_category = []
+        window.utag_data.blog_list_articles_category = []
         for (var i = 0; i < allCategoriesInBlogListing.length; i++) {
-          utag_data.blog_list_articles_category.push(
+          window.utag_data.blog_list_articles_category.push(
             allCategoriesInBlogListing[i].innerText.trim()
           )
         }
       }
       var allArticleDateInBlogListing = $('.blog-list__blog-header-detail-date')
       if (allArticleDateInBlogListing.length > 0) {
-        utag_data.blog_list_articles_date = []
+        window.utag_data.blog_list_articles_date = []
         for (var i = 0; i < allArticleDateInBlogListing.length; i++) {
           var date = new Date(allArticleDateInBlogListing[i].innerText.trim())
-          utag_data.blog_list_articles_date.push(
+          window.utag_data.blog_list_articles_date.push(
             ('0' + (date.getMonth() + 1)).slice(-2) +
             '/' +
             ('0' + date.getDate()).slice(-2) +
@@ -2957,13 +2966,13 @@ class PageHandlers {
       }
       var allArticleTitlesInBlogListing = $('.blog-list__blog-title a')
       if (allArticleTitlesInBlogListing.length > 0) {
-        utag_data.blog_list_articles_titles_char_counts = []
-        utag_data.blog_list_articles_titles_strings = []
+        window.utag_data.blog_list_articles_titles_char_counts = []
+        window.utag_data.blog_list_articles_titles_strings = []
         for (var i = 0; i < allArticleTitlesInBlogListing.length; i++) {
-          utag_data.blog_list_articles_titles_char_counts.push(
+          window.utag_data.blog_list_articles_titles_char_counts.push(
             allArticleTitlesInBlogListing[i].innerText.trim().length.toString()
           )
-          utag_data.blog_list_articles_titles_strings.push(
+          window.utag_data.blog_list_articles_titles_strings.push(
             allArticleTitlesInBlogListing[i].innerText.trim()
           )
         }
@@ -2992,11 +3001,11 @@ class AnalyticsManager {
   }
 
   triggerUtagView(customData = {}) {
-    window.analyticsUtils.triggerUtagView(window.utag_data, customData)
+    window.analyticsUtils.triggerUtagView(customData)
   }
 
   triggerUtagLink(eventType, customData = {}) {
-    window.analyticsUtils.triggerUtagLink(window.utag_data, eventType, customData)
+    window.analyticsUtils.triggerUtagLink(eventType, customData)
   }
 
   initialize(config) {
@@ -3156,7 +3165,7 @@ class AnalyticsManager {
     }
 
     if (window.eventHandler) {
-      window.eventHandler.initialize(this.config, window.utag_data)
+      window.eventHandler.initialize(this.config)
     }
 
     var allH1InHeader = this.getCachedElement('h1', 'h1Elements')
@@ -3165,7 +3174,7 @@ class AnalyticsManager {
     }
 
     if (window.pageHandlers) {
-      window.pageHandlers.handlePageSpecificLogic(this.config, window.utag_data)
+      window.pageHandlers.handlePageSpecificLogic(this.config)
     }
 
     this.executeWithErrorHandling(() => {
@@ -3173,7 +3182,7 @@ class AnalyticsManager {
     }, 'Could not load tealium script.')
 
     if (window.formHandler) {
-      window.formHandler.initialize(this.config, window.utag_data)
+      window.formHandler.initialize(this.config)
     }
 
     if (
@@ -3196,17 +3205,35 @@ class AnalyticsManager {
     document.addEventListener('DIDViewOfferDetailsClick', (e) => {
       this.executeWithErrorHandling(() => {
         var promo = {}
+        var formName = 'getPromotionLeadForm'
+        var formContainer = ' .form-fields-container'
+
         promo.tealium_event = 'did_view_offer_details_click'
         if (e.detail) {
-          promo.did_promotions_name = e.detail.promotionName
+          promo.did_promotions_selected = []
+          promo.did_promotions_selected.push(e.detail.promotionId)
           promo.campaign_id = e.detail.promotionId
+          if (e.detail.promotionName) {
+            promo.did_promotions_name = e.detail.promotionName
+          }
         }
-        var final = Object.assign({}, this.config.siteUser, promo)
+        
+        var final = Object.assign(
+          {}, 
+          this.config.siteUser, 
+          this.config.productInfo || {}, 
+          promo
+        )
+        
         window.analyticsUtils.triggerUtagLink(
-          {},
           'did_view_offer_details_click',
           final
         )
+
+        // Restore form interaction tracking
+        if (window.formHandler) {
+          window.formHandler.formInteraction(final, formName, formContainer)
+        }
       }, 'Could not trigger utag.link on promotion ' + (e.detail?.promotionId || ''))
     })
 
@@ -3216,11 +3243,22 @@ class AnalyticsManager {
         var promo = {}
         promo.tealium_event = 'did_view_more_click'
         if (e.detail) {
-          promo.did_promotions_name = e.detail.promotionName
+          promo.did_promotions_selected = []
+          promo.did_promotions_selected.push(e.detail.promotionId)
           promo.campaign_id = e.detail.promotionId
+          if (e.detail.promotionName) {
+            promo.did_promotions_name = e.detail.promotionName
+          }
         }
-        var final = Object.assign({}, this.config.siteUser, promo)
-        window.analyticsUtils.triggerUtagLink({}, 'did_view_more_click', final)
+        
+        var final = Object.assign(
+          {}, 
+          this.config.siteUser, 
+          this.config.productInfo || {}, 
+          promo
+        )
+        
+        window.analyticsUtils.triggerUtagLink('did_view_more_click', final)
       }, 'Could not trigger utag.link on promotion ' + (e.detail?.promotionId || ''))
     })
 
@@ -3232,7 +3270,9 @@ class AnalyticsManager {
 
 
 
-        var submissionData = e.detail && e.detail.formData ? e.detail.formData : (e.detail || {});
+        var detail = e.detail || {};
+        // Merge detail and formData to ensure we have all properties (fields and auxiliary data like locations)
+        var submissionData = Object.assign({}, detail, detail.formData || {});
         form = Object.assign({}, form, submissionData);
 
         // Normalize specific fields to legacy format
@@ -3241,8 +3281,12 @@ class AnalyticsManager {
             form = Object.assign({}, form, normalizedData);
         }
 
+        // Cleanup lookup objects to avoid polluting analytics payload
+        delete form.AllLocations;
+        delete form.SelectedLocation;
+
         // Handle specific form submission types
-        if (form.form_name === 'Get A Quote' || form.FormName === 'Get A Quote') {
+        if (form.form_name === 'Get Promotions' || form.FormName === 'Get Promotions') {
           form.tealium_event = 'did_get_a_quote_form_submit'
         }
 
@@ -3303,7 +3347,7 @@ class AnalyticsManager {
         }
 
         const showcaseData =
-          window.productHandler?.getShowCaseData?.(window.utag_data) || {}
+          window.productHandler?.getShowCaseData?.() || {}
         const promotionData =
           window.productHandler?.getPromotionData?.(form, e.detail?.formData) ||
           {}
@@ -3331,7 +3375,7 @@ class AnalyticsManager {
           final.page_make_group = this.config.pageMakeGroup
         }
 
-        window.analyticsUtils.triggerUtagLink({}, form.tealium_event, final)
+        window.analyticsUtils.triggerUtagLink(form.tealium_event, final)
       }, 'Could not trigger utag.link method for form submission')
     })
 
@@ -3374,7 +3418,6 @@ class AnalyticsManager {
     this.executeWithErrorHandling(() => {
       window.utag_data.tealium_event = 'did_limited_time_offer_click'
       window.analyticsUtils.triggerUtagLink(
-        {},
         'did_limited_time_offer_click',
         window.utag_data
       )
