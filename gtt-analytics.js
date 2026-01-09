@@ -1941,6 +1941,26 @@ class FormHandler {
     this.formTrackingSetup = true
 
     this.trackStaticFormLoads()
+    this.trackCantFindForm()
+  }
+
+  trackCantFindForm() {
+    const buttons = document.querySelectorAll('button[href*=".cant-find-form"]')
+    buttons.forEach((button) => {
+      button.addEventListener('click', () => {
+        // Allow a small delay for the class to be toggled by the inline handler or other scripts
+        setTimeout(() => {
+          if (screen.width >= 768) {
+            const formContainer = document.querySelector(
+              '.ari-row.cant-find-form'
+            )
+            if (formContainer) {
+              this.processFormLoad(formContainer)
+            }
+          }
+        }, 50)
+      })
+    })
   }
 
   trackStaticFormLoads() {
