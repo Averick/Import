@@ -2030,7 +2030,7 @@ class FormHandler {
       }
 
       // Skip "Can't Find What You're Looking For?" form on desktop (exact logic from old template)
-      if (formId == 1461 && screen.width >= 768) {
+      if ((formId == 1461 || isCantFindContext) && screen.width >= 768) {
         return // Skip desktop "Can't Find" form (matches old template: return true)
       }
 
