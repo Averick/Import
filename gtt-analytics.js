@@ -43,7 +43,7 @@ class AnalyticsUtils {
     const eventName = eventType || customData.tealium_event
     const shouldIncludeGlobalData =
       sessionStorage.getItem('ari_pending_promo_click') ||
-      (eventName && eventName.startsWith('did_view_'))
+      (eventName && typeof eventName === 'string' && eventName.startsWith('did_view_'))
 
     if (shouldIncludeGlobalData) {
       Object.assign(eventData, window.utag_data, customData)
@@ -1337,7 +1337,6 @@ class EventHandler {
         // Trigger both traditional addtocart and new eCommerce event
         this.triggerUtagTrack('addtocart', ecommerceData)
         window.analyticsUtils.triggerUtagLink(
-          {},
           'ecommerce_part_cart_action',
           ecommerceData
         )
