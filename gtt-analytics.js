@@ -3,7 +3,7 @@ class AnalyticsUtils {
     this.domCache = {}
   }
 
-  // DOM utilities
+
   getCachedElement(selector, cacheKey = null) {
     const key = cacheKey || selector
     if (!this.domCache[key]) {
@@ -20,9 +20,8 @@ class AnalyticsUtils {
     return this.domCache[key]
   }
 
-  // Tealium utilities
+
   triggerUtagView(customData = {}) {
-    // Check if there is a pending promo click event that needs to be fired first
     if (sessionStorage.getItem('ari_pending_promo_click')) {
         console.log('Suppressing view event due to pending promo click')
         return
@@ -174,7 +173,6 @@ class AnalyticsUtils {
 
   triggerUtagTrack(eventName, eventData) {
     if (eventData) {
-      // Create a shallow copy to avoid mutating the original object
       eventData = Object.assign({}, eventData)
       eventData = this.cleanEventData(eventData)
     }
@@ -214,9 +212,8 @@ class AnalyticsUtils {
   }
 
   /**
-   * Parse JSON from DOM element with error handling
    * @param {string} elementId - DOM element ID
-   * @returns {object|null} Parsed object or null if parsing fails
+   * @returns {object|null} Parsed object or null
    */
   parseJsonFromElement(elementId) {
     try {
@@ -229,9 +226,8 @@ class AnalyticsUtils {
   }
 
   /**
-   * Safely parse JSON string with error handling
-   * @param {string} jsonString - JSON string to parse
-   * @returns {object|null} Parsed object or null if parsing fails
+   * @param {string} jsonString
+   * @returns {object|null}
    */
   safeJsonParse(jsonString) {
     if (!jsonString || typeof jsonString !== 'string') {
@@ -256,9 +252,8 @@ class AnalyticsUtils {
   }
 
   /**
-   * Parse price string to number (preserve exact logic)
-   * @param {string} priceString - Price string (e.g., "$1,234.56")
-   * @returns {number} Numeric price value
+   * @param {string} priceString
+   * @returns {number}
    */
   parsePrice(priceString) {
     if (!priceString) return 0
@@ -271,9 +266,8 @@ class AnalyticsUtils {
   }
 
   /**
-   * Count characters in text elements
-   * @param {NodeList} elements - Elements to count
-   * @returns {number} Total character count
+   * @param {NodeList} elements
+   * @returns {number}
    */
   countTextCharacters(elements) {
     let totalCount = 0
@@ -304,9 +298,8 @@ class AnalyticsUtils {
   }
 
   /**
-   * Convert query string to JSON object
-   * @param {string} queryString - Query string (optional, uses window.location.search if not provided)
-   * @returns {object} Object with query parameters
+   * @param {string} queryString
+   * @returns {object}
    */
   static queryStringToJSON(queryString = null) {
     const query = queryString || window.location.search
@@ -338,9 +331,8 @@ class AnalyticsUtils {
   }
 
   /**
-   * Validate email address format
-   * @param {string} email - Email address to validate
-   * @returns {boolean} True if valid email format
+   * @param {string} email
+   * @returns {boolean}
    */
   static isValidEmail(email) {
     if (!email || typeof email !== 'string') {
@@ -352,9 +344,8 @@ class AnalyticsUtils {
   }
 
   /**
-   * Validate phone number format (US format)
-   * @param {string} phone - Phone number to validate
-   * @returns {boolean} True if valid phone format
+   * @param {string} phone
+   * @returns {boolean}
    */
   static isValidPhone(phone) {
     if (!phone || typeof phone !== 'string') {
@@ -397,9 +388,8 @@ class AnalyticsUtils {
   }
 
   /**
-   * Clean and validate URL
-   * @param {string} url - URL to clean
-   * @returns {string} Cleaned URL
+   * @param {string} url
+   * @returns {string}
    */
   static cleanUrl(url) {
     if (!url || typeof url !== 'string') {
@@ -417,9 +407,8 @@ class AnalyticsUtils {
   }
 
   /**
-   * Extract domain from URL
-   * @param {string} url - URL to extract domain from
-   * @returns {string} Domain name
+   * @param {string} url
+   * @returns {string}
    */
   static extractDomain(url) {
     if (!url || typeof url !== 'string') {
@@ -436,10 +425,9 @@ class AnalyticsUtils {
   }
 
   /**
-   * Sanitize string for analytics (remove special characters, limit length)
-   * @param {string} str - String to sanitize
-   * @param {number} maxLength - Maximum length (default 100)
-   * @returns {string} Sanitized string
+   * @param {string} str
+   * @param {number} maxLength
+   * @returns {string}
    */
   static sanitizeString(str, maxLength = 100) {
     if (!str || typeof str !== 'string') {
@@ -461,9 +449,8 @@ class AnalyticsUtils {
   }
 
   /**
-   * Get current timestamp in various formats
-   * @param {string} format - Format type ('iso', 'unix', 'readable')
-   * @returns {string|number} Formatted timestamp
+   * @param {string} format
+   * @returns {string|number}
    */
   static getCurrentTimestamp(format = 'iso') {
     const now = new Date()
@@ -480,9 +467,8 @@ class AnalyticsUtils {
   }
 
   /**
-   * Deep clone object (for utag_data manipulation)
-   * @param {object} obj - Object to clone
-   * @returns {object} Cloned object
+   * @param {object} obj
+   * @returns {object}
    */
   static deepClone(obj) {
     if (obj === null || typeof obj !== 'object') {
@@ -506,11 +492,10 @@ class AnalyticsUtils {
   }
 
   /**
-   * Merge objects with conflict resolution
-   * @param {object} target - Target object
-   * @param {object} source - Source object
-   * @param {boolean} overwrite - Whether to overwrite existing properties
-   * @returns {object} Merged object
+   * @param {object} target
+   * @param {object} source
+   * @param {boolean} overwrite
+   * @returns {object}
    */
   static mergeObjects(target, source, overwrite = true) {
     const result = this.deepClone(target)
@@ -525,9 +510,8 @@ class AnalyticsUtils {
   }
 
   /**
-   * Check if element is visible in viewport
-   * @param {Element} element - DOM element to check
-   * @returns {boolean} True if element is visible
+   * @param {Element} element
+   * @returns {boolean}
    */
   static isElementVisible(element) {
     if (!element) return false
@@ -543,10 +527,9 @@ class AnalyticsUtils {
   }
 
   /**
-   * Debounce function execution
-   * @param {Function} func - Function to debounce
-   * @param {number} wait - Wait time in milliseconds
-   * @returns {Function} Debounced function
+   * @param {Function} func
+   * @param {number} wait
+   * @returns {Function}
    */
   static debounce(func, wait) {
     let timeout
@@ -561,10 +544,9 @@ class AnalyticsUtils {
   }
 
   /**
-   * Throttle function execution
-   * @param {Function} func - Function to throttle
-   * @param {number} limit - Limit time in milliseconds
-   * @returns {Function} Throttled function
+   * @param {Function} func
+   * @param {number} limit
+   * @returns {Function}
    */
   static throttle(func, limit) {
     let inThrottle
@@ -586,10 +568,9 @@ class AnalyticsUtils {
   }
 
   /**
-   * Log error with context for analytics debugging
-   * @param {string} message - Error message
-   * @param {object} context - Additional context
-   * @param {Error} error - Original error object
+   * @param {string} message
+   * @param {object} context
+   * @param {Error} error
    */
   static logError(message, context = {}, error = null) {
     const errorData = {
@@ -1362,10 +1343,8 @@ class EventHandler {
       }.bind(this)
     )
 
-    // eCommerce cart modification event handler
     this.setupEcommerceCartModificationListener()
 
-    // Setup additional eCommerce event listeners
     this.setupEcommerceEventHandlers()
 
     window.addEventListener('load', () => {
@@ -1813,7 +1792,6 @@ class EventHandler {
     })
   }
 
-  // Helper method to execute code with error handling
   executeWithErrorHandling(fn, errorMessage) {
     try {
       return fn()
@@ -1969,14 +1947,6 @@ class FormHandler {
     // Check page type from utag_data to determine if we should process static forms
     const pageType = window.utag_data?.page_type || 'other'
 
-    // Skip static form processing for search and product details pages
-    // Forms on these pages should only trigger when modals are opened
-    if (pageType === 'search' || pageType === 'product details') {
-      return
-    }
-
-
-
     let forms = Array.from(
       document.querySelectorAll(
         '.component[class*=" LeadForm_"], .component[class*="OfferedServices_"]'
@@ -2095,7 +2065,6 @@ class FormHandler {
     }
   }
 
-  // Extract product data from form's datasource
   extractFormProductData(formElement) {
     const pageType = window.utag_data?.page_type || 'other'
 
@@ -2252,7 +2221,7 @@ class FormHandler {
 
   // Add formInteraction method to match original API exactly
   formInteraction(final, formDetail, optionalParam = '') {
-    // Find the actual form element inside the modal (exactly like original)
+    // Find the actual form element inside the modal
     const formElement = document.querySelector(
       '#' + formDetail + ' form' + optionalParam
     )
@@ -2375,7 +2344,6 @@ class FormHandler {
   }
 
   setupFormInteractionTracking() {
-    // Enhanced interaction tracking for specific form types
     this.setupServiceFormTracking()
     this.setupFinancingFormTracking()
     this.setupTradeInFormTracking()
