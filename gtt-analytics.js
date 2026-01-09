@@ -1134,16 +1134,11 @@ class ProductHandler {
       promotion.did_form_name = form.formName
       promotion.did_form_submission_first_name = form.form_submission_first_name
       promotion.did_form_submission_last_name = form.form_submission_last_name
-    }
-
-    if (data && data.contact) {
-      promotion.did_form_submission_perferred_contact = data.contact
-      if (data.contact === 'email') {
-        promotion.did_form_submission_email = data.email
-      }
-      if (data.contact === 'phone') {
-        promotion.did_form_submission_phone = data.phone
-      }
+      if(form.contact && form.contact.toLowerCase() === 'email') {
+			  promotion.did_form_submission_perferred_contact = form.form_submission_email;
+		  } else if(form.contact && form.contact.toLowerCase() === 'phone') {
+			  promotion.did_form_submission_perferred_contact = form.form_submission_phone_number;
+		  }
     }
 
     return promotion
@@ -3279,7 +3274,7 @@ class AnalyticsManager {
         delete form.SelectedLocation;
 
         // Handle specific form submission types
-        if (form.form_name === 'Get A Quote' || form.FormName === 'Get A Quote') {
+        if (form.form_name === 'Get Promotions' || form.FormName === 'Get Promotions') {
           form.tealium_event = 'did_get_a_quote_form_submit'
         }
 
