@@ -1301,8 +1301,8 @@ class EventHandler {
     $(document).on(
       'click',
       '[id^=addToCartECommerce]',
-      function () {
-        const buttonId = $(this).attr('id')
+      (event) => {
+        const buttonId = $(event.currentTarget).attr('id')
         const index = buttonId.split('-').pop()
 
         // Enhanced eCommerce data with proper inventory class handling
@@ -1328,6 +1328,7 @@ class EventHandler {
             ) || 0,
           product_coupon: $(`#product-coupon-${index}`).val(),
           ecomm_part_detail_inventory_class: 'Part',
+          ecomm_part_list_inventory_class: 'Part',
           order_id: '',
           order_total: 0,
           order_currency: 'USD',
@@ -1340,7 +1341,7 @@ class EventHandler {
           'ecommerce_part_cart_action',
           ecommerceData
         )
-      }.bind(this)
+      }
     )
 
     this.setupEcommerceCartModificationListener()
@@ -1744,10 +1745,14 @@ class EventHandler {
       this.executeWithErrorHandling(() => {
         if (
           event.data &&
-          event.data.tealium_event === 'ecommerce_part_modify_cart' &&
-          !('ecomm_part_detail_inventory_class' in event.data)
+          event.data.tealium_event === 'ecommerce_part_modify_cart'
         ) {
-          event.data.ecomm_part_detail_inventory_class = 'Part'
+          if (!('ecomm_part_detail_inventory_class' in event.data)) {
+            event.data.ecomm_part_detail_inventory_class = 'Part'
+          }
+          if (!('ecomm_part_list_inventory_class' in event.data)) {
+            event.data.ecomm_part_list_inventory_class = 'Part'
+          }
         }
       }, 'Error processing eCommerce cart modification event')
     })
@@ -1764,6 +1769,9 @@ class EventHandler {
         ) {
           if (!('ecomm_part_detail_inventory_class' in event.data)) {
             event.data.ecomm_part_detail_inventory_class = 'Part'
+          }
+          if (!('ecomm_part_list_inventory_class' in event.data)) {
+            event.data.ecomm_part_list_inventory_class = 'Part'
           }
           window.analyticsUtils.triggerUtagLink(
             'ecommerce_part_cart_action',
@@ -1782,6 +1790,9 @@ class EventHandler {
         ) {
           if (!('ecomm_part_detail_inventory_class' in event.data)) {
             event.data.ecomm_part_detail_inventory_class = 'Part'
+          }
+          if (!('ecomm_part_list_inventory_class' in event.data)) {
+            event.data.ecomm_part_list_inventory_class = 'Part'
           }
           window.analyticsUtils.triggerUtagLink(
             'ecommerce_part_modify_cart',
