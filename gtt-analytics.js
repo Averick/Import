@@ -1981,6 +1981,9 @@ class FormHandler {
         return
       }
 
+      const isCantFindContext =
+        form.closest('.cant-find-section') || form.closest('.cant-find-form')
+
       // Follow EXACT exclusion logic from old template (return true = skip)
       if (form.closest('div[class*="Staff_"]')) {
         return // Skip staff forms (matches old template: return true)
@@ -1989,10 +1992,10 @@ class FormHandler {
       if (form.closest('div[class*="ShowcaseRoot_"]')) {
         return // Skip showcase forms (matches old template: return true)
       }
-      if (form.closest('div[class*="VDP-Unit-Detail_"]')) {
+      if (!isCantFindContext && form.closest('div[class*="VDP-Unit-Detail_"]')) {
         return // Skip VDP unit detail forms (matches old template: return true)
       }
-      if (form.closest('div[class*="SearchRoot_"]')) {
+      if (!isCantFindContext && form.closest('div[class*="SearchRoot_"]')) {
         return // Skip search forms (matches old template: return true)
       }
 
