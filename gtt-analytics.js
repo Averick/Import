@@ -1116,9 +1116,9 @@ class ProductHandler {
       promotion.did_form_submission_first_name = form.form_submission_first_name
       promotion.did_form_submission_last_name = form.form_submission_last_name
       if(form.contact && form.contact.toLowerCase() === 'email') {
-			  promotion.did_form_submission_perferred_contact = form.form_submission_email;
+			  promotion.did_form_submission_perferred_contact = 'Email';
 		  } else if(form.contact && form.contact.toLowerCase() === 'phone') {
-			  promotion.did_form_submission_perferred_contact = form.form_submission_phone_number;
+			  promotion.did_form_submission_perferred_contact = 'Phone';
 		  }
     }
 
