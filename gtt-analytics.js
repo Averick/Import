@@ -2207,9 +2207,16 @@ class FormHandler {
           tealium_event: 'form_interaction',
         }
 
-        if (!interactionData._form_pretty_name && interactionData.form_name) {
-          interactionData._form_pretty_name = interactionData.form_name
-        }
+        /*
+         * Commented out because any variable starting with "_" is an internal Tealium variable
+         * and should not be set manually.
+         *
+         * if (!interactionData._form_pretty_name && interactionData.form_name) {
+         *   interactionData._form_pretty_name = interactionData.form_name
+         * }
+         */
+
+
 
         this.trackEvent('form_interaction', interactionData)
 
@@ -2230,9 +2237,16 @@ class FormHandler {
           tealium_event: 'form_interaction',
         }
 
-        if (!interactionData._form_pretty_name && interactionData.form_name) {
-          interactionData._form_pretty_name = interactionData.form_name
-        }
+        /*
+         * Commented out because any variable starting with "_" is an internal Tealium variable
+         * and should not be set manually.
+         *
+         * if (!interactionData._form_pretty_name && interactionData.form_name) {
+         *   interactionData._form_pretty_name = interactionData.form_name
+         * }
+         */
+
+
 
         this.trackEvent('form_interaction', interactionData)
 
@@ -2270,9 +2284,16 @@ class FormHandler {
           var finalInteractionData = Object.assign({}, final)
           finalInteractionData.tealium_event = 'form_interaction'
 
-          if (!finalInteractionData._form_pretty_name && finalInteractionData.form_name) {
-            finalInteractionData._form_pretty_name = finalInteractionData.form_name
-          }
+          /*
+           * Commented out because any variable starting with "_" is an internal Tealium variable
+           * and should not be set manually.
+           *
+           * if (!finalInteractionData._form_pretty_name && finalInteractionData.form_name) {
+           *   finalInteractionData._form_pretty_name = finalInteractionData.form_name
+           * }
+           */
+
+
 
           // Trigger the event exactly like original
           window.analyticsUtils.triggerUtagLink('form_interaction', finalInteractionData)
