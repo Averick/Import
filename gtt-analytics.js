@@ -1168,6 +1168,12 @@ class EventHandler {
 
     const pendingPromoClick = sessionStorage.getItem('ari_pending_promo_click')
     
+    // Suppress automatic view if we have a pending click to process first
+    if (pendingPromoClick) {
+        window.utag_cfg_ovrd = window.utag_cfg_ovrd || {};
+        window.utag_cfg_ovrd.noview = true;
+    }
+
     const handleInitialEvents = () => {
          if (typeof utag !== 'undefined') {
             // This logic exists to avoid race condition between promotion detail click and promotion detail page navigation
@@ -1176,15 +1182,16 @@ class EventHandler {
                  try {
                      const pendingData = JSON.parse(pendingPromoClick)
                      this.triggerUtagLink(pendingData)
-                     //utag.cfg.noview = true
                  } catch(e) {
                      console.error('Error firing pending promo click event', e)
                  } finally {
                      sessionStorage.removeItem('ari_pending_promo_click')
-                     //utag.cfg.noview = false
+                     
+                     // Clean up the override so subsequent views can fire normally
+                     if (window.utag_cfg_ovrd) {
+                        delete window.utag_cfg_ovrd.noview;
+                     }
                  }
-
-               //this.triggerUtagView(window.utag_data)
              }
          } else {
              setTimeout(handleInitialEvents, 50)
