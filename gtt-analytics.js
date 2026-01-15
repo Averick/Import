@@ -1191,10 +1191,6 @@ class EventHandler {
                      if (window.utag_cfg_ovrd) {
                         delete window.utag_cfg_ovrd.noview;
                      }
-
-                     // Explicitly trigger the view now that we've handled the click
-                     // This restores the view event we suppressed
-                     this.triggerUtagView()
                  }
              }
          } else {
