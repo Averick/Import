@@ -3,7 +3,7 @@ class AnalyticsUtils {
     this.domCache = {}
   }
 
-  // DOM utilities
+
   getCachedElement(selector, cacheKey = null) {
     const key = cacheKey || selector
     if (!this.domCache[key]) {
@@ -20,9 +20,8 @@ class AnalyticsUtils {
     return this.domCache[key]
   }
 
-  // Tealium utilities
+
   triggerUtagView(customData = {}) {
-    // Check if there is a pending promo click event that needs to be fired first
     if (sessionStorage.getItem('ari_pending_promo_click')) {
         console.log('Suppressing view event due to pending promo click')
         return
@@ -44,7 +43,7 @@ class AnalyticsUtils {
     const eventName = eventType || customData.tealium_event
     const shouldIncludeGlobalData =
       sessionStorage.getItem('ari_pending_promo_click') ||
-      (eventName && eventName.startsWith('did_view_'))
+      (eventName && typeof eventName === 'string' && eventName.startsWith('did_view_'))
 
     if (shouldIncludeGlobalData) {
       Object.assign(eventData, window.utag_data, customData)
@@ -174,7 +173,6 @@ class AnalyticsUtils {
 
   triggerUtagTrack(eventName, eventData) {
     if (eventData) {
-      // Create a shallow copy to avoid mutating the original object
       eventData = Object.assign({}, eventData)
       eventData = this.cleanEventData(eventData)
     }
@@ -214,9 +212,8 @@ class AnalyticsUtils {
   }
 
   /**
-   * Parse JSON from DOM element with error handling
    * @param {string} elementId - DOM element ID
-   * @returns {object|null} Parsed object or null if parsing fails
+   * @returns {object|null} Parsed object or null
    */
   parseJsonFromElement(elementId) {
     try {
@@ -229,9 +226,8 @@ class AnalyticsUtils {
   }
 
   /**
-   * Safely parse JSON string with error handling
-   * @param {string} jsonString - JSON string to parse
-   * @returns {object|null} Parsed object or null if parsing fails
+   * @param {string} jsonString
+   * @returns {object|null}
    */
   safeJsonParse(jsonString) {
     if (!jsonString || typeof jsonString !== 'string') {
@@ -256,9 +252,8 @@ class AnalyticsUtils {
   }
 
   /**
-   * Parse price string to number (preserve exact logic)
-   * @param {string} priceString - Price string (e.g., "$1,234.56")
-   * @returns {number} Numeric price value
+   * @param {string} priceString
+   * @returns {number}
    */
   parsePrice(priceString) {
     if (!priceString) return 0
@@ -271,9 +266,8 @@ class AnalyticsUtils {
   }
 
   /**
-   * Count characters in text elements
-   * @param {NodeList} elements - Elements to count
-   * @returns {number} Total character count
+   * @param {NodeList} elements
+   * @returns {number}
    */
   countTextCharacters(elements) {
     let totalCount = 0
@@ -304,9 +298,8 @@ class AnalyticsUtils {
   }
 
   /**
-   * Convert query string to JSON object
-   * @param {string} queryString - Query string (optional, uses window.location.search if not provided)
-   * @returns {object} Object with query parameters
+   * @param {string} queryString
+   * @returns {object}
    */
   static queryStringToJSON(queryString = null) {
     const query = queryString || window.location.search
@@ -338,9 +331,8 @@ class AnalyticsUtils {
   }
 
   /**
-   * Validate email address format
-   * @param {string} email - Email address to validate
-   * @returns {boolean} True if valid email format
+   * @param {string} email
+   * @returns {boolean}
    */
   static isValidEmail(email) {
     if (!email || typeof email !== 'string') {
@@ -352,9 +344,8 @@ class AnalyticsUtils {
   }
 
   /**
-   * Validate phone number format (US format)
-   * @param {string} phone - Phone number to validate
-   * @returns {boolean} True if valid phone format
+   * @param {string} phone
+   * @returns {boolean}
    */
   static isValidPhone(phone) {
     if (!phone || typeof phone !== 'string') {
@@ -397,9 +388,8 @@ class AnalyticsUtils {
   }
 
   /**
-   * Clean and validate URL
-   * @param {string} url - URL to clean
-   * @returns {string} Cleaned URL
+   * @param {string} url
+   * @returns {string}
    */
   static cleanUrl(url) {
     if (!url || typeof url !== 'string') {
@@ -417,9 +407,8 @@ class AnalyticsUtils {
   }
 
   /**
-   * Extract domain from URL
-   * @param {string} url - URL to extract domain from
-   * @returns {string} Domain name
+   * @param {string} url
+   * @returns {string}
    */
   static extractDomain(url) {
     if (!url || typeof url !== 'string') {
@@ -436,10 +425,9 @@ class AnalyticsUtils {
   }
 
   /**
-   * Sanitize string for analytics (remove special characters, limit length)
-   * @param {string} str - String to sanitize
-   * @param {number} maxLength - Maximum length (default 100)
-   * @returns {string} Sanitized string
+   * @param {string} str
+   * @param {number} maxLength
+   * @returns {string}
    */
   static sanitizeString(str, maxLength = 100) {
     if (!str || typeof str !== 'string') {
@@ -461,9 +449,8 @@ class AnalyticsUtils {
   }
 
   /**
-   * Get current timestamp in various formats
-   * @param {string} format - Format type ('iso', 'unix', 'readable')
-   * @returns {string|number} Formatted timestamp
+   * @param {string} format
+   * @returns {string|number}
    */
   static getCurrentTimestamp(format = 'iso') {
     const now = new Date()
@@ -480,9 +467,8 @@ class AnalyticsUtils {
   }
 
   /**
-   * Deep clone object (for utag_data manipulation)
-   * @param {object} obj - Object to clone
-   * @returns {object} Cloned object
+   * @param {object} obj
+   * @returns {object}
    */
   static deepClone(obj) {
     if (obj === null || typeof obj !== 'object') {
@@ -506,11 +492,10 @@ class AnalyticsUtils {
   }
 
   /**
-   * Merge objects with conflict resolution
-   * @param {object} target - Target object
-   * @param {object} source - Source object
-   * @param {boolean} overwrite - Whether to overwrite existing properties
-   * @returns {object} Merged object
+   * @param {object} target
+   * @param {object} source
+   * @param {boolean} overwrite
+   * @returns {object}
    */
   static mergeObjects(target, source, overwrite = true) {
     const result = this.deepClone(target)
@@ -525,9 +510,8 @@ class AnalyticsUtils {
   }
 
   /**
-   * Check if element is visible in viewport
-   * @param {Element} element - DOM element to check
-   * @returns {boolean} True if element is visible
+   * @param {Element} element
+   * @returns {boolean}
    */
   static isElementVisible(element) {
     if (!element) return false
@@ -543,10 +527,9 @@ class AnalyticsUtils {
   }
 
   /**
-   * Debounce function execution
-   * @param {Function} func - Function to debounce
-   * @param {number} wait - Wait time in milliseconds
-   * @returns {Function} Debounced function
+   * @param {Function} func
+   * @param {number} wait
+   * @returns {Function}
    */
   static debounce(func, wait) {
     let timeout
@@ -561,10 +544,9 @@ class AnalyticsUtils {
   }
 
   /**
-   * Throttle function execution
-   * @param {Function} func - Function to throttle
-   * @param {number} limit - Limit time in milliseconds
-   * @returns {Function} Throttled function
+   * @param {Function} func
+   * @param {number} limit
+   * @returns {Function}
    */
   static throttle(func, limit) {
     let inThrottle
@@ -586,10 +568,9 @@ class AnalyticsUtils {
   }
 
   /**
-   * Log error with context for analytics debugging
-   * @param {string} message - Error message
-   * @param {object} context - Additional context
-   * @param {Error} error - Original error object
+   * @param {string} message
+   * @param {object} context
+   * @param {Error} error
    */
   static logError(message, context = {}, error = null) {
     const errorData = {
@@ -933,25 +914,27 @@ class ProductHandler {
 
   populateProductArrays(config, arrays, items) {
     items.forEach((data) => {
-      arrays.makes.push(data.itemMake)
-      arrays.years.push(data.itemYear)
-      arrays.names.push(data.name)
-      arrays.prices.push(data.unitPrice)
-      arrays.categories.push(data.itemType)
-      arrays.categoryIds.push(data.itemTypeId)
-      arrays.industries.push(data.itemIndustry)
-      arrays.makeIds.push(data.productOwnerId)
-      arrays.msrps.push(data.itemOriginalPrice)
-      arrays.vins.push(data.vin || "")
-      arrays.externalColors.push(data.primaryColor)
+      arrays.makes.push(data.itemMake || '')
+      arrays.years.push(data.itemYear || '')
+      arrays.names.push(data.name || '')
+      arrays.prices.push(data.unitPrice || '')
+      arrays.categories.push(data.itemType || '')
+      arrays.categoryIds.push(data.itemTypeId || '')
+      arrays.industries.push(data.itemIndustry || '')
+      arrays.makeIds.push(data.productOwnerId || '')
+      arrays.msrps.push(data.itemOriginalPrice || '')
+      arrays.vins.push(data.vin || '')
+      arrays.externalColors.push(data.primaryColor || '')
 
-      // Handle external branded zone sites
+      // Handle external branded zone sites - ensure parity across all ID arrays
       if (config.isExternalBrandedZoneSite && data.productExternalId) {
         arrays.ids.push(parseInt(data.productExternalId))
         arrays.productExternalIds.push(data.productExternalId)
         arrays.productExternalPlatforms.push(config.parentSitePlatformType)
       } else {
-        arrays.ids.push(data.productId)
+        arrays.ids.push(data.productId || '')
+        arrays.productExternalIds.push('')
+        arrays.productExternalPlatforms.push('')
       }
 
       arrays.types.push(
@@ -1135,9 +1118,9 @@ class ProductHandler {
       promotion.did_form_submission_first_name = form.form_submission_first_name
       promotion.did_form_submission_last_name = form.form_submission_last_name
       if(form.contact && form.contact.toLowerCase() === 'email') {
-			  promotion.did_form_submission_perferred_contact = form.form_submission_email;
+			  promotion.did_form_submission_perferred_contact = 'Email';
 		  } else if(form.contact && form.contact.toLowerCase() === 'phone') {
-			  promotion.did_form_submission_perferred_contact = form.form_submission_phone_number;
+			  promotion.did_form_submission_perferred_contact = 'Phone';
 		  }
     }
 
@@ -1320,8 +1303,8 @@ class EventHandler {
     $(document).on(
       'click',
       '[id^=addToCartECommerce]',
-      function () {
-        const buttonId = $(this).attr('id')
+      (event) => {
+        const buttonId = $(event.currentTarget).attr('id')
         const index = buttonId.split('-').pop()
 
         // Enhanced eCommerce data with proper inventory class handling
@@ -1347,6 +1330,7 @@ class EventHandler {
             ) || 0,
           product_coupon: $(`#product-coupon-${index}`).val(),
           ecomm_part_detail_inventory_class: 'Part',
+          ecomm_part_list_inventory_class: 'Part',
           order_id: '',
           order_total: 0,
           order_currency: 'USD',
@@ -1355,17 +1339,14 @@ class EventHandler {
         // Trigger both traditional addtocart and new eCommerce event
         this.triggerUtagTrack('addtocart', ecommerceData)
         window.analyticsUtils.triggerUtagLink(
-          {},
           'ecommerce_part_cart_action',
           ecommerceData
         )
-      }.bind(this)
+      }
     )
 
-    // eCommerce cart modification event handler
     this.setupEcommerceCartModificationListener()
 
-    // Setup additional eCommerce event listeners
     this.setupEcommerceEventHandlers()
 
     window.addEventListener('load', () => {
@@ -1765,10 +1746,14 @@ class EventHandler {
       this.executeWithErrorHandling(() => {
         if (
           event.data &&
-          event.data.tealium_event === 'ecommerce_part_modify_cart' &&
-          !('ecomm_part_detail_inventory_class' in event.data)
+          event.data.tealium_event === 'ecommerce_part_modify_cart'
         ) {
-          event.data.ecomm_part_detail_inventory_class = 'Part'
+          if (!('ecomm_part_detail_inventory_class' in event.data)) {
+            event.data.ecomm_part_detail_inventory_class = 'Part'
+          }
+          if (!('ecomm_part_list_inventory_class' in event.data)) {
+            event.data.ecomm_part_list_inventory_class = 'Part'
+          }
         }
       }, 'Error processing eCommerce cart modification event')
     })
@@ -1785,6 +1770,9 @@ class EventHandler {
         ) {
           if (!('ecomm_part_detail_inventory_class' in event.data)) {
             event.data.ecomm_part_detail_inventory_class = 'Part'
+          }
+          if (!('ecomm_part_list_inventory_class' in event.data)) {
+            event.data.ecomm_part_list_inventory_class = 'Part'
           }
           window.analyticsUtils.triggerUtagLink(
             'ecommerce_part_cart_action',
@@ -1804,6 +1792,9 @@ class EventHandler {
           if (!('ecomm_part_detail_inventory_class' in event.data)) {
             event.data.ecomm_part_detail_inventory_class = 'Part'
           }
+          if (!('ecomm_part_list_inventory_class' in event.data)) {
+            event.data.ecomm_part_list_inventory_class = 'Part'
+          }
           window.analyticsUtils.triggerUtagLink(
             'ecommerce_part_modify_cart',
             event.data
@@ -1813,7 +1804,6 @@ class EventHandler {
     })
   }
 
-  // Helper method to execute code with error handling
   executeWithErrorHandling(fn, errorMessage) {
     try {
       return fn()
@@ -1963,19 +1953,31 @@ class FormHandler {
     this.formTrackingSetup = true
 
     this.trackStaticFormLoads()
+    this.trackCantFindForm()
+  }
+
+  trackCantFindForm() {
+    const buttons = document.querySelectorAll('button[href*=".cant-find-form"]')
+    buttons.forEach((button) => {
+      button.addEventListener('click', () => {
+        // Allow a small delay for the class to be toggled by the inline handler or other scripts
+        setTimeout(() => {
+          if (screen.width >= 768) {
+            const formContainer = document.querySelector(
+              '.ari-row.cant-find-form'
+            )
+            if (formContainer) {
+              this.processFormLoad(formContainer)
+            }
+          }
+        }, 50)
+      })
+    })
   }
 
   trackStaticFormLoads() {
-    // Check page type from utag_data to determine if we should process static forms
-    const pageType = window.utag_data?.page_type || 'other'
-
-    // Skip static form processing for search and product details pages
-    // Forms on these pages should only trigger when modals are opened
-    if (pageType === 'search' || pageType === 'product details') {
-      return
-    }
-
-
+    // Check site_section from utag_data to determine if we should process static forms
+    const pageType = window.utag_data?.site_section || 'other'
 
     let forms = Array.from(
       document.querySelectorAll(
@@ -1994,7 +1996,7 @@ class FormHandler {
 
 
 
-    forms.forEach((form) => {
+    forms.forEach((form, index) => {
       // Create unique identifier for this form to prevent duplicates
       const formId =
         form
@@ -2004,12 +2006,15 @@ class FormHandler {
         form
           .querySelector('span[data-form-name]')
           ?.getAttribute('data-form-name') || 'unknown'
-      const formKey = `${formId}_${formName}_${form.outerHTML.length}` // Include length to ensure uniqueness
+      const formKey = `${formId}_${formName}_${form.outerHTML.length}_${index}` // Include length and index to ensure uniqueness
 
       // Skip if already tracked
       if (this.formLoadTracked.has(formKey)) {
         return
       }
+
+      const isCantFindContext =
+        form.closest('.cant-find-section') || form.closest('.cant-find-form')
 
       // Follow EXACT exclusion logic from old template (return true = skip)
       if (form.closest('div[class*="Staff_"]')) {
@@ -2019,15 +2024,15 @@ class FormHandler {
       if (form.closest('div[class*="ShowcaseRoot_"]')) {
         return // Skip showcase forms (matches old template: return true)
       }
-      if (form.closest('div[class*="VDP-Unit-Detail_"]')) {
+      if (!isCantFindContext && form.closest('div[class*="VDP-Unit-Detail_"]')) {
         return // Skip VDP unit detail forms (matches old template: return true)
       }
-      if (form.closest('div[class*="SearchRoot_"]')) {
+      if (!isCantFindContext && form.closest('div[class*="SearchRoot_"]')) {
         return // Skip search forms (matches old template: return true)
       }
 
       // Skip "Can't Find What You're Looking For?" form on desktop (exact logic from old template)
-      if (formId == 1461 && screen.width >= 768) {
+      if ((formId == 1461 || isCantFindContext) && screen.width >= 768) {
         return // Skip desktop "Can't Find" form (matches old template: return true)
       }
 
@@ -2095,9 +2100,8 @@ class FormHandler {
     }
   }
 
-  // Extract product data from form's datasource
   extractFormProductData(formElement) {
-    const pageType = window.utag_data?.page_type || 'other'
+    const pageType = window.utag_data?.site_section || 'other'
 
     // Old template logic: different product data source based on page type
     if (pageType === 'finance') {
@@ -2205,9 +2209,16 @@ class FormHandler {
           tealium_event: 'form_interaction',
         }
 
-        if (!interactionData._form_pretty_name && interactionData.form_name) {
-          interactionData._form_pretty_name = interactionData.form_name
-        }
+        /*
+         * Commented out because any variable starting with "_" is an internal Tealium variable
+         * and should not be set manually.
+         *
+         * if (!interactionData._form_pretty_name && interactionData.form_name) {
+         *   interactionData._form_pretty_name = interactionData.form_name
+         * }
+         */
+
+
 
         this.trackEvent('form_interaction', interactionData)
 
@@ -2228,9 +2239,16 @@ class FormHandler {
           tealium_event: 'form_interaction',
         }
 
-        if (!interactionData._form_pretty_name && interactionData.form_name) {
-          interactionData._form_pretty_name = interactionData.form_name
-        }
+        /*
+         * Commented out because any variable starting with "_" is an internal Tealium variable
+         * and should not be set manually.
+         *
+         * if (!interactionData._form_pretty_name && interactionData.form_name) {
+         *   interactionData._form_pretty_name = interactionData.form_name
+         * }
+         */
+
+
 
         this.trackEvent('form_interaction', interactionData)
 
@@ -2252,7 +2270,7 @@ class FormHandler {
 
   // Add formInteraction method to match original API exactly
   formInteraction(final, formDetail, optionalParam = '') {
-    // Find the actual form element inside the modal (exactly like original)
+    // Find the actual form element inside the modal
     const formElement = document.querySelector(
       '#' + formDetail + ' form' + optionalParam
     )
@@ -2268,9 +2286,16 @@ class FormHandler {
           var finalInteractionData = Object.assign({}, final)
           finalInteractionData.tealium_event = 'form_interaction'
 
-          if (!finalInteractionData._form_pretty_name && finalInteractionData.form_name) {
-            finalInteractionData._form_pretty_name = finalInteractionData.form_name
-          }
+          /*
+           * Commented out because any variable starting with "_" is an internal Tealium variable
+           * and should not be set manually.
+           *
+           * if (!finalInteractionData._form_pretty_name && finalInteractionData.form_name) {
+           *   finalInteractionData._form_pretty_name = finalInteractionData.form_name
+           * }
+           */
+
+
 
           // Trigger the event exactly like original
           window.analyticsUtils.triggerUtagLink('form_interaction', finalInteractionData)
@@ -2375,7 +2400,6 @@ class FormHandler {
   }
 
   setupFormInteractionTracking() {
-    // Enhanced interaction tracking for specific form types
     this.setupServiceFormTracking()
     this.setupFinancingFormTracking()
     this.setupTradeInFormTracking()
@@ -3051,7 +3075,6 @@ class AnalyticsManager {
     const pageSubType = config.pageSubType || config.page_sub_type || config.page_subtype
 
     if (pageType) {
-      window.utag_data.page_type = pageType
       window.utag_data.site_section = pageType
     }
     if (pageSubType) {
@@ -3291,7 +3314,7 @@ class AnalyticsManager {
         }
 
         // Extract productDetails based on pageType
-        const pageType = window.utag_data?.page_type || 'other'
+        const pageType = window.utag_data?.site_section || 'other'
         let productDetails = {}
 
         if (pageType === 'search') {
@@ -3393,7 +3416,7 @@ class AnalyticsManager {
     })
 
     // Product details page specific handling
-    const pageType = window.utag_data?.page_type || 'other'
+    const pageType = window.utag_data?.site_section || 'other'
     if (pageType === 'product details') {
       // Check if user came from promotion link click
       if (localStorage.getItem(limitedTimeOfferBtnClicked)) {
