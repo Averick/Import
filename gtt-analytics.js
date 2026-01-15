@@ -3458,10 +3458,9 @@ class AnalyticsManager {
   // Handle limited time offer button click
   handleLimitedTimeOfferButtonClick() {
     this.executeWithErrorHandling(() => {
-      window.utag_data.tealium_event = 'did_limited_time_offer_click'
       window.analyticsUtils.triggerUtagLink(
         'did_limited_time_offer_click',
-        window.utag_data
+        { tealium_event: 'did_limited_time_offer_click' }
       )
     }, 'Could not trigger limited time offer click event')
   }
