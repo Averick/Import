@@ -3073,7 +3073,7 @@ class AnalyticsManager {
     const pageSubType = config.pageSubType || config.page_sub_type || config.page_subtype
 
     if (pageType) {
-      window.utag_data.page_type = pageType
+      //window.utag_data.page_type = pageType
       window.utag_data.site_section = pageType
     }
     if (pageSubType) {
