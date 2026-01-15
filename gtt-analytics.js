@@ -46,7 +46,7 @@ class AnalyticsUtils {
     const eventName = eventType || customData.tealium_event
     const shouldIncludeGlobalData =
       sessionStorage.getItem('ari_pending_promo_click') ||
-      (eventName && typeof eventName === 'string' && eventName.startsWith('did_view_'))
+      (eventName && typeof eventName === 'string' && (eventName.startsWith('did_view_') || eventName === 'did_limited_time_offer_click'))
 
     if (shouldIncludeGlobalData) {
       Object.assign(eventData, window.utag_data, customData)
