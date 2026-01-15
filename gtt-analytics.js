@@ -22,9 +22,12 @@ class AnalyticsUtils {
 
 
   triggerUtagView(customData = {}) {
-    if (sessionStorage.getItem('ari_pending_promo_click')) {
-        console.log('Suppressing view event due to pending promo click')
-        return
+    if (
+      sessionStorage.getItem('ari_pending_promo_click') ||
+      localStorage.getItem('limitedTimeOfferBtnClicked_flag')
+    ) {
+      console.log('Suppressing view event due to pending click event')
+      return
     }
 
     let eventData = Object.assign({}, window.utag_data, customData)
@@ -1172,9 +1175,10 @@ class EventHandler {
 
 
     const pendingPromoClick = sessionStorage.getItem('ari_pending_promo_click')
+    const pendingLimitedTimeOffer = localStorage.getItem('limitedTimeOfferBtnClicked_flag')
     
     // Suppress automatic view if we have a pending click to process first
-    if (pendingPromoClick) {
+    if (pendingPromoClick || pendingLimitedTimeOffer) {
         window.utag_cfg_ovrd = window.utag_cfg_ovrd || {};
         window.utag_cfg_ovrd.noview = true;
     }
@@ -1191,13 +1195,33 @@ class EventHandler {
                      console.error('Error firing pending promo click event', e)
                  } finally {
                      sessionStorage.removeItem('ari_pending_promo_click')
-                     
-                     // Clean up the override so subsequent views can fire normally
-                     if (window.utag_cfg_ovrd) {
-                        delete window.utag_cfg_ovrd.noview;
-                     }
                  }
              }
+
+             if (pendingLimitedTimeOffer) {
+                try {
+                    window.analyticsUtils.triggerUtagLink(
+                        'did_limited_time_offer_click',
+                        { tealium_event: 'did_limited_time_offer_click' }
+                    )
+                } catch(e) {
+                     console.error('Error firing pending limited time offer click event', e)
+                } finally {
+                     localStorage.removeItem('limitedTimeOfferBtnClicked_flag')
+                }
+             }
+
+             // Clean up the override so subsequent views can fire normally
+             if (window.utag_cfg_ovrd && (pendingPromoClick || pendingLimitedTimeOffer)) {
+                delete window.utag_cfg_ovrd.noview;
+             }
+
+             // If we suppressed the initial view and the page load has already finished, we need to fire the view now
+             if ((pendingPromoClick || pendingLimitedTimeOffer) && document.readyState === 'complete') {
+                 console.log('Firing view event after pending click events')
+                 window.analyticsManager.triggerUtagView()
+             }
+
          } else {
              setTimeout(handleInitialEvents, 50)
          }
@@ -3438,10 +3462,8 @@ class AnalyticsManager {
     const pageType = window.utag_data?.site_section || 'other'
     if (pageType === 'product details') {
       // Check if user came from promotion link click
-      if (localStorage.getItem(limitedTimeOfferBtnClicked)) {
-        this.handleLimitedTimeOfferButtonClick()
-        localStorage.removeItem(limitedTimeOfferBtnClicked)
-      }
+      // Logic moved to EventHandler to ensure utag is loaded before firing
+
 
       // Set up inventory promo message click handler
       const inventoryPromoMessage = document.getElementById(
