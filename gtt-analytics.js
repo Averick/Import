@@ -1974,8 +1974,8 @@ class FormHandler {
   }
 
   trackStaticFormLoads() {
-    // Check page type from utag_data to determine if we should process static forms
-    const pageType = window.utag_data?.page_type || 'other'
+    // Check site_section from utag_data to determine if we should process static forms
+    const pageType = window.utag_data?.site_section || 'other'
 
     let forms = Array.from(
       document.querySelectorAll(
@@ -2099,7 +2099,7 @@ class FormHandler {
   }
 
   extractFormProductData(formElement) {
-    const pageType = window.utag_data?.page_type || 'other'
+    const pageType = window.utag_data?.site_section || 'other'
 
     // Old template logic: different product data source based on page type
     if (pageType === 'finance') {
@@ -3073,7 +3073,6 @@ class AnalyticsManager {
     const pageSubType = config.pageSubType || config.page_sub_type || config.page_subtype
 
     if (pageType) {
-      //window.utag_data.page_type = pageType
       window.utag_data.site_section = pageType
     }
     if (pageSubType) {
@@ -3313,7 +3312,7 @@ class AnalyticsManager {
         }
 
         // Extract productDetails based on pageType
-        const pageType = window.utag_data?.page_type || 'other'
+        const pageType = window.utag_data?.site_section || 'other'
         let productDetails = {}
 
         if (pageType === 'search') {
@@ -3415,7 +3414,7 @@ class AnalyticsManager {
     })
 
     // Product details page specific handling
-    const pageType = window.utag_data?.page_type || 'other'
+    const pageType = window.utag_data?.site_section || 'other'
     if (pageType === 'product details') {
       // Check if user came from promotion link click
       if (localStorage.getItem(limitedTimeOfferBtnClicked)) {
