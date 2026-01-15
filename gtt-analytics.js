@@ -906,10 +906,7 @@ class ProductHandler {
   }
 
   isValidProductData(data, fields) {
-    return Object.entries(data).some(
-      ([key, value]) =>
-        fields.includes(key) && value != null && !/^\s*$/.test(String(value))
-    )
+    return data && typeof data === 'object';
   }
 
   populateProductArrays(config, arrays, items) {
