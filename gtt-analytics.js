@@ -107,7 +107,7 @@ class AnalyticsUtils {
     if (Array.isArray(obj)) {
       return obj
         .map((item) => this.cleanEventData(item))
-        .filter((item) => item !== null && item !== '' && item !== undefined)
+        .filter((item) => item !== null && item !== undefined)
     }
 
     obj = this.removeDuplicateKeys(obj)
