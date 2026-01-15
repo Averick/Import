@@ -906,7 +906,15 @@ class ProductHandler {
   }
 
   isValidProductData(data, fields) {
-    return data && typeof data === 'object';
+    if (!data || typeof data !== 'object') return false
+
+    // Ensure we have a valid ID (either productId or productExternalId)
+    // Use loose string check to catch empty strings
+    const hasProductId = data.productId && String(data.productId).trim() !== ''
+    const hasExternalId =
+      data.productExternalId && String(data.productExternalId).trim() !== ''
+
+    return hasProductId || hasExternalId
   }
 
   populateProductArrays(config, arrays, items) {
