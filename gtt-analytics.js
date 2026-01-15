@@ -914,25 +914,27 @@ class ProductHandler {
 
   populateProductArrays(config, arrays, items) {
     items.forEach((data) => {
-      arrays.makes.push(data.itemMake)
-      arrays.years.push(data.itemYear)
-      arrays.names.push(data.name)
-      arrays.prices.push(data.unitPrice)
-      arrays.categories.push(data.itemType)
-      arrays.categoryIds.push(data.itemTypeId)
-      arrays.industries.push(data.itemIndustry)
-      arrays.makeIds.push(data.productOwnerId)
-      arrays.msrps.push(data.itemOriginalPrice)
-      arrays.vins.push(data.vin || "")
-      arrays.externalColors.push(data.primaryColor)
+      arrays.makes.push(data.itemMake || '')
+      arrays.years.push(data.itemYear || '')
+      arrays.names.push(data.name || '')
+      arrays.prices.push(data.unitPrice || '')
+      arrays.categories.push(data.itemType || '')
+      arrays.categoryIds.push(data.itemTypeId || '')
+      arrays.industries.push(data.itemIndustry || '')
+      arrays.makeIds.push(data.productOwnerId || '')
+      arrays.msrps.push(data.itemOriginalPrice || '')
+      arrays.vins.push(data.vin || '')
+      arrays.externalColors.push(data.primaryColor || '')
 
-      // Handle external branded zone sites
+      // Handle external branded zone sites - ensure parity across all ID arrays
       if (config.isExternalBrandedZoneSite && data.productExternalId) {
         arrays.ids.push(parseInt(data.productExternalId))
         arrays.productExternalIds.push(data.productExternalId)
         arrays.productExternalPlatforms.push(config.parentSitePlatformType)
       } else {
-        arrays.ids.push(data.productId)
+        arrays.ids.push(data.productId || '')
+        arrays.productExternalIds.push('')
+        arrays.productExternalPlatforms.push('')
       }
 
       arrays.types.push(
