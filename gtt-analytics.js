@@ -2798,83 +2798,85 @@ class PageHandlers {
     this.initialized = false
   }
 
+  handleSearchPageLogic(config) {
+    window.productHandler.setProductItemsArrays(config)
+
+    var headerBanners = $('[class*="component SearchRoot_"] .seo-banner')
+    if (headerBanners.length == 0) {
+      headerBanners = $('[class*="component SEO-Content_"] .seo-banner')
+    }
+
+    if (headerBanners.length > 0) {
+      var pageHeaderButtons =
+        headerBanners[0].innerHTML.match(/href=(\"(.*?)\")/g)
+      if (pageHeaderButtons) {
+        window.utag_data.product_list_header_buttons_uris = pageHeaderButtons
+      }
+      var allHeaderDescriptiveElements =
+        headerBanners[0].querySelectorAll('p,li')
+      if (allHeaderDescriptiveElements.length > 0) {
+        window.utag_data.product_list_header_p_char_counts =
+          window.analyticsUtils.countTextCharacters(
+            allHeaderDescriptiveElements
+          )
+      }
+      window.utag_data.product_list_header_img_count =
+        headerBanners[0].getElementsByTagName('img').length
+    }
+
+    var footerBanners = $('[class*="component SearchRoot_"] .seo-footer')
+    if (footerBanners.length == 0) {
+      footerBanners = $('[class*="component SEO-Content_"] .seo-footer')
+    }
+
+    if (footerBanners.length > 0) {
+      var allH2InFooter = footerBanners[0].getElementsByTagName('h2')
+      var allH3InFooter = footerBanners[0].getElementsByTagName('h3')
+
+      var footerDescriptiveElements =
+        footerBanners[0].querySelectorAll('p,li')
+      if (footerDescriptiveElements.length > 0) {
+        const textData = window.analyticsUtils.extractTextData(
+          footerDescriptiveElements
+        )
+        window.utag_data.product_list_footer_p_char_counts = textData.lengths
+      }
+      window.utag_data.product_list_footer_img_count =
+        footerBanners[0].getElementsByTagName('img').length
+
+      if (allH2InFooter.length > 0) {
+        const h2TextData =
+          window.analyticsUtils.extractTextData(allH2InFooter)
+        window.utag_data.product_list_footer_h2_char_counts = h2TextData.lengths
+        window.utag_data.product_list_footer_h2_strings = h2TextData.texts
+      }
+      if (allH3InFooter.length > 0) {
+        const h3TextData =
+          window.analyticsUtils.extractTextData(allH3InFooter)
+        window.utag_data.product_list_footer_h3_char_counts = h3TextData.lengths
+        window.utag_data.product_list_footer_h3_strings = h3TextData.texts
+      }
+    }
+
+    var searchResultsCountLabel = $('.search-results-count')
+    if (searchResultsCountLabel.length > 0) {
+      var arr = searchResultsCountLabel[0].innerText.split(' ')
+      window.utag_data.search_result_count = arr[arr.length - 2]
+    }
+
+    window.utag_data.did_active =
+      window.analyticsUtils.getCachedElements(
+        '.promotion-link',
+        'promotionLinks'
+      ).length > 0
+        ? 1
+        : 0
+  }
+
   handlePageSpecificLogic(config) {
     const { pageType, pageSubType } = config
 
-    if (pageType === 'search') {
-      window.productHandler.setProductItemsArrays(config)
-
-      var headerBanners = $('[class*="component SearchRoot_"] .seo-banner')
-      if (headerBanners.length == 0) {
-        headerBanners = $('[class*="component SEO-Content_"] .seo-banner')
-      }
-
-      if (headerBanners.length > 0) {
-        var pageHeaderButtons =
-          headerBanners[0].innerHTML.match(/href=(\"(.*?)\")/g)
-        if (pageHeaderButtons) {
-          window.utag_data.product_list_header_buttons_uris = pageHeaderButtons
-        }
-        var allHeaderDescriptiveElements =
-          headerBanners[0].querySelectorAll('p,li')
-        if (allHeaderDescriptiveElements.length > 0) {
-          window.utag_data.product_list_header_p_char_counts =
-            window.analyticsUtils.countTextCharacters(
-              allHeaderDescriptiveElements
-            )
-        }
-        window.utag_data.product_list_header_img_count =
-          headerBanners[0].getElementsByTagName('img').length
-      }
-
-      var footerBanners = $('[class*="component SearchRoot_"] .seo-footer')
-      if (footerBanners.length == 0) {
-        footerBanners = $('[class*="component SEO-Content_"] .seo-footer')
-      }
-
-      if (footerBanners.length > 0) {
-        var allH2InFooter = footerBanners[0].getElementsByTagName('h2')
-        var allH3InFooter = footerBanners[0].getElementsByTagName('h3')
-
-        var footerDescriptiveElements =
-          footerBanners[0].querySelectorAll('p,li')
-        if (footerDescriptiveElements.length > 0) {
-          const textData = window.analyticsUtils.extractTextData(
-            footerDescriptiveElements
-          )
-          window.utag_data.product_list_footer_p_char_counts = textData.lengths
-        }
-        window.utag_data.product_list_footer_img_count =
-          footerBanners[0].getElementsByTagName('img').length
-
-        if (allH2InFooter.length > 0) {
-          const h2TextData =
-            window.analyticsUtils.extractTextData(allH2InFooter)
-          window.utag_data.product_list_footer_h2_char_counts = h2TextData.lengths
-          window.utag_data.product_list_footer_h2_strings = h2TextData.texts
-        }
-        if (allH3InFooter.length > 0) {
-          const h3TextData =
-            window.analyticsUtils.extractTextData(allH3InFooter)
-          window.utag_data.product_list_footer_h3_char_counts = h3TextData.lengths
-          window.utag_data.product_list_footer_h3_strings = h3TextData.texts
-        }
-      }
-
-      var searchResultsCountLabel = $('.search-results-count')
-      if (searchResultsCountLabel.length > 0) {
-        var arr = searchResultsCountLabel[0].innerText.split(' ')
-        window.utag_data.search_result_count = arr[arr.length - 2]
-      }
-
-      window.utag_data.did_active =
-        window.analyticsUtils.getCachedElements(
-          '.promotion-link',
-          'promotionLinks'
-        ).length > 0
-          ? 1
-          : 0
-    } else if (pageType == 'showroom') {
+    if (pageType == 'showroom') {
       window.analyticsUtils.setDataPointByDataPropertyName(
         window.utag_data,
         'data-product-owner-name',
@@ -3201,6 +3203,11 @@ class AnalyticsManager {
     }
 
     if (window.pageHandlers) {
+      // For search pages, we defer logic to window.load to ensure DOM is ready
+      if (this.config.pageType === 'search') {
+          window.utag_cfg_ovrd = window.utag_cfg_ovrd || {};
+          window.utag_cfg_ovrd.noview = true;
+      }
       window.pageHandlers.handlePageSpecificLogic(this.config)
     }
 
@@ -3476,6 +3483,18 @@ class AnalyticsManager {
 
   handleWindowLoad() {
     const { pageType, referenceError } = this.config
+
+    if (pageType === 'search') {
+      // Now execution search specific logic
+      if (window.pageHandlers) {
+        window.pageHandlers.handleSearchPageLogic(this.config)
+        
+        // Clean up the override so view can fire normally
+        if (window.utag_cfg_ovrd) {
+            delete window.utag_cfg_ovrd.noview;
+        }
+      }
+    }
 
     if (pageType === 'search' || pageType === 'product details') {
       window.utag_data.digital_retailing_active =
