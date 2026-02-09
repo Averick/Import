@@ -3048,6 +3048,16 @@ class AnalyticsManager {
     this.initialized = false
     this.config = null
     this.domCache = {}
+    
+    // Utility check for sessionStorage availability
+    this.isSessionStorageAvailable = (function () {
+      try {
+        return typeof sessionStorage !== 'undefined' && sessionStorage !== null
+      } catch (e) {
+        console.warn('SessionStorage is not available:', e)
+        return false
+      }
+    })()
   }
 
   executeWithErrorHandling(operation, errorMessage) {
@@ -3546,7 +3556,76 @@ class AnalyticsManager {
       window.formHandler.setupFormTracking()
     }
 
+    this.configureAnnouncementTracking()
+  }
 
+  isAnnouncementAvailable() {
+    return !!document.querySelector('#text-promo-modal, #image-promo-modal')
+  }
+
+  getAnnouncementDatasource() {
+    const datasource = document.querySelector(
+      '#text-announcement-data, #image-announcement-data'
+    )
+    if (!datasource) return null
+
+    return window.analyticsUtils.safeJsonParse(datasource.innerText)
+  }
+
+  configureAnnouncementTracking() {
+    if (!this.isAnnouncementAvailable()) return
+
+    const dataSource = this.getAnnouncementDatasource()
+    if (!dataSource?.Id) {
+      console.error('Invalid announcement data source: missing Id')
+      return
+    }
+
+    // Merge with utag_data to ensure global context is present,
+    // as triggerUtagLink might not include it for this specific event type.
+    const announcementData = Object.assign({}, window.utag_data, {
+      announcement_id: dataSource.Id,
+      announcement_modal_text: dataSource.AnnouncementDetails || '',
+      announcement_modal_placement: dataSource.Placement || '',
+      announcement_modal_timeline: dataSource.TimeLine || '',
+    })
+
+    // Track modal load event
+    this.captureAnnouncementEvent(announcementData, 'announcement_modal_load')
+
+    // Track click on modal link
+    const promoModalLink = document.querySelector('.promo-modal-link')
+    if (promoModalLink) {
+      promoModalLink.addEventListener(
+        'click',
+        () => {
+          this.captureAnnouncementEvent(
+            announcementData,
+            'announcement_modal_click'
+          )
+        },
+        { once: true }
+      )
+    }
+  }
+
+  captureAnnouncementEvent(announcementData, eventName) {
+    const sessionKey = `announcement_tracked_${announcementData.announcement_id}_${eventName}`
+
+    // Check if event already tracked in this session
+    if (this.isSessionStorageAvailable && sessionStorage.getItem(sessionKey)) {
+      return
+    }
+
+    window.analyticsUtils.triggerUtagLink(
+      eventName,
+      announcementData,
+      () => {
+        if (this.isSessionStorageAvailable) {
+          sessionStorage.setItem(sessionKey, 'true')
+        }
+      }
+    )
   }
 
   updateUtagData(updates) {
