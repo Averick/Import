@@ -675,6 +675,7 @@ class ProductHandler {
     this.setProductMedia(config, productDataSource)
     this.setProductType(config, productDataSource)
     this.updateFinancingUrl(config)
+    this.setAiProductExpertActiveFlag(config)
   }
 
   parseProductDataSource() {
@@ -815,6 +816,11 @@ class ProductHandler {
     } catch (error) {
       console.error('Error parsing financing URL in Tealium component:', error)
     }
+  }
+
+  setAiProductExpertActiveFlag(config) {
+    const isAiExpertShownOnVdp = document.getElementById('ai-expert-container') !== null
+    config.productInfo.ai_product_expert_active = isAiExpertShownOnVdp ? 'true' : 'false'
   }
 
   getPromotionAnalyticsData(config) {
